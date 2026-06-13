@@ -37,6 +37,20 @@ type AppStyle = CSSProperties & {
   "--sidebar-toggle-y"?: string;
 };
 
+interface WebTitleSuggestion {
+  suggestedTitle: string;
+}
+
+async function detectWebTitle(url: string, signal: AbortSignal): Promise<WebTitleSuggestion> {
+  const params = new URLSearchParams({ url });
+  const response = await fetch(`/api/documents/web/title?${params.toString()}`, { signal });
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not detect link title");
+  }
+  return response.json() as Promise<WebTitleSuggestion>;
+}
+
 export function BasedApp() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [storage, setStorage] = useState<AppConfig["storage"] | null>(null);
@@ -72,6 +86,7 @@ export function BasedApp() {
   const [formUrl, setFormUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const lastAutoTitle = useRef("");
 
   useEffect(() => {
     fetchConfig()
@@ -113,6 +128,37 @@ export function BasedApp() {
     const timer = window.setTimeout(() => setToast(""), 2200);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (pending?.kind !== "web" || !URL.canParse(formUrl)) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void detectWebTitle(formUrl, controller.signal)
+        .then((suggestion) => {
+          if (!suggestion.suggestedTitle) return;
+          setFormTitle((current) => {
+            if (current.trim() && current !== lastAutoTitle.current) return current;
+            lastAutoTitle.current = suggestion.suggestedTitle;
+            return suggestion.suggestedTitle;
+          });
+        })
+        .catch(() => {
+          const fallback = titleFromUrl(formUrl);
+          if (!fallback) return;
+          setFormTitle((current) => {
+            if (current.trim() && current !== lastAutoTitle.current) return current;
+            lastAutoTitle.current = fallback;
+            return fallback;
+          });
+        });
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [formUrl, pending]);
 
   const tags = useMemo(() => uniqTags(documents), [documents]);
 
@@ -265,10 +311,15 @@ export function BasedApp() {
   function openWebPending() {
     setPending({ kind: "web" });
     setFormTitle("");
+    lastAutoTitle.current = "";
     setFormType("web");
     setFormTags("");
     setFormUrl("");
     setSourceChooserOpen(false);
+  }
+
+  function changeWebUrl(value: string) {
+    setFormUrl(value);
   }
 
   function handleFiles(files: FileList | null) {
@@ -328,7 +379,6 @@ export function BasedApp() {
         activeFilterGroup={activeFilterGroup}
         activeTag={activeTag}
         activeType={activeType}
-        documents={documents}
         sidebarCollapsed={sidebarCollapsed}
         tags={tags}
         tagsOpen={tagsOpen}
@@ -412,7 +462,7 @@ export function BasedApp() {
         onFormTagsChange={setFormTags}
         onFormTitleChange={setFormTitle}
         onFormTypeChange={setFormType}
-        onFormUrlChange={setFormUrl}
+        onFormUrlChange={changeWebUrl}
         onSave={() => void savePending()}
       />
       <DocumentActionsModal

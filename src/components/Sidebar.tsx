@@ -1,11 +1,10 @@
 import { ChevronDown, ChevronsLeft, ChevronsRight, FileText, Moon, Settings, Sun } from "lucide-react";
-import type { DocumentType, KnowledgeDocument } from "../lib/types";
+import type { DocumentType } from "../lib/types";
 
 interface SidebarProps {
   activeFilterGroup: "documents" | "tags";
   activeTag: string;
   activeType: DocumentType | "all";
-  documents: KnowledgeDocument[];
   sidebarCollapsed: boolean;
   tags: string[];
   tagsOpen: boolean;
@@ -22,7 +21,6 @@ export function Sidebar({
   activeFilterGroup,
   activeTag,
   activeType,
-  documents,
   sidebarCollapsed,
   tags,
   tagsOpen,
@@ -71,7 +69,6 @@ export function Sidebar({
             >
               <span className="tag-hash">#</span>
               <span className="nav-label">All tags</span>
-              <span className="nav-count">{tags.length}</span>
             </button>
             {tags.map((tag) => (
               <button
@@ -81,7 +78,6 @@ export function Sidebar({
               >
                 <span className="tag-hash">#</span>
                 <span className="nav-label">{tag}</span>
-                <span className="nav-count">{documents.filter((doc) => doc.tags.includes(tag)).length}</span>
               </button>
             ))}
           </div>

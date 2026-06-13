@@ -1,7 +1,8 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { ExternalLink, FileText, X } from "lucide-react";
+import { FileText, X } from "lucide-react";
 import type { KnowledgeDocument } from "../lib/types";
 import { PdfCanvas } from "./PdfCanvas";
+import { WebReader } from "./WebReader";
 
 interface PreviewSidebarProps {
   document: KnowledgeDocument | null;
@@ -30,10 +31,7 @@ export function PreviewSidebar({ document, onClose, onResizeStart }: PreviewSide
         {canRenderPdf ? (
           <PdfCanvas documentId={document.id} mode="preview" title={document.title} />
         ) : document.type === "web" ? (
-          <a className="preview-empty" href={document.source} target="_blank" rel="noreferrer">
-            <ExternalLink size={18} />
-            <span>Open web source</span>
-          </a>
+          <WebReader document={document} />
         ) : (
           <div className="preview-empty">
             <FileText size={24} />

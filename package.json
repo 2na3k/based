@@ -21,7 +21,9 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "@prisma/client": "6",
+    "linkedom": "^0.18.12",
     "lucide-react": "^1.18.0",
     "next": "^16.2.9",
     "pdfjs-dist": "^6.0.227",

@@ -32,6 +32,30 @@ export function titleFromUrl(value: string): string {
   }
 }
 
+function titleFromPath(url: URL): string {
+  const segment = url.pathname
+    .split("/")
+    .filter(Boolean)
+    .at(-1);
+  if (!segment) return "";
+
+  return decodeURIComponent(segment)
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+}
+
+export function titleFromLink(value: string, pageTitle = ""): string {
+  try {
+    const url = new URL(value);
+    const source = url.hostname.replace(/^www\./, "");
+    const title = pageTitle.trim() || titleFromPath(url);
+    return title ? `${source}-${title}` : source;
+  } catch {
+    return "";
+  }
+}
+
 export function formatDate(doc: KnowledgeDocument): string {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(doc.createdAt));
 }
