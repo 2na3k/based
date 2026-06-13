@@ -1,5 +1,5 @@
 import { MoreVertical } from "lucide-react";
-import { formatMeta, TYPE_LABELS } from "../lib/documents";
+import { formatDate, TYPE_LABELS } from "../lib/documents";
 import type { KnowledgeDocument } from "../lib/types";
 
 interface DocumentCardProps {
@@ -68,25 +68,23 @@ export function DocumentCard({ doc, selected, onActions, onSelect, onTagClick }:
       <div className="card-body">
         <div className="card-title">{doc.title}</div>
         <div className="card-source">{doc.source}</div>
-        {doc.tags.length ? (
-          <span className="card-tags" aria-label="Document tags">
-            {doc.tags.map((tag) => (
-              <button
-                key={tag}
-                className="card-tag"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onTagClick(tag);
-                }}
-              >
-                #{tag}
-              </button>
-            ))}
-          </span>
-        ) : null}
       </div>
       <div className="card-foot">
-        <span className="card-meta">{formatMeta(doc)}</span>
+        <span className="card-tags" aria-label="Document tags">
+          {doc.tags.map((tag) => (
+            <button
+              key={tag}
+              className="card-tag"
+              onClick={(event) => {
+                event.stopPropagation();
+                onTagClick(tag);
+              }}
+            >
+              #{tag}
+            </button>
+          ))}
+        </span>
+        <span className="card-meta">{formatDate(doc)}</span>
       </div>
     </article>
   );

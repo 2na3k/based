@@ -32,8 +32,12 @@ export function titleFromUrl(value: string): string {
   }
 }
 
+export function formatDate(doc: KnowledgeDocument): string {
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(doc.createdAt));
+}
+
 export function formatMeta(doc: KnowledgeDocument): string {
-  const date = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(doc.createdAt));
+  const date = formatDate(doc);
   if (doc.type === "web" && doc.size === 0) return date;
   const kb = Math.max(1, Math.round(doc.size / 1024));
   return `${date} · ${kb}kb`;
