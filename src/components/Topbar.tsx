@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Search, Upload } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface TopbarProps {
   fileInput: RefObject<HTMLInputElement | null>;
@@ -28,9 +28,6 @@ export function Topbar({ fileInput, searchQ, onFilesChange, onOpenSourceChooser,
         </div>
       </div>
       <div className="topbar-right">
-        <button className="btn-ghost" onClick={() => fileInput.current?.click()}>
-          <Upload size={13} /> Import
-        </button>
         <button className="btn-primary" onClick={onOpenSourceChooser}>
           + Add
         </button>

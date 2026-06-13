@@ -8,8 +8,8 @@ interface DocumentGridProps {
   loading: boolean;
   selectedDocumentId: number | null;
   viewMode: ViewMode;
+  onDocumentActions: (doc: KnowledgeDocument) => void;
   onDocumentSelect: (doc: KnowledgeDocument) => void;
-  onShowMessage: (message: string) => void;
   onTagClick: (tag: string) => void;
 }
 
@@ -17,10 +17,10 @@ export function DocumentGrid({
   documents,
   error,
   loading,
+  onDocumentActions,
   selectedDocumentId,
   viewMode,
   onDocumentSelect,
-  onShowMessage,
   onTagClick,
 }: DocumentGridProps) {
   return (
@@ -47,8 +47,8 @@ export function DocumentGrid({
             key={doc.id}
             doc={doc}
             selected={selectedDocumentId === doc.id}
+            onActions={onDocumentActions}
             onSelect={onDocumentSelect}
-            onShowMessage={onShowMessage}
             onTagClick={onTagClick}
           />
         ))}

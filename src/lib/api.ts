@@ -53,3 +53,37 @@ export async function addWebDocument(input: {
 
   return response.json() as Promise<KnowledgeDocument>;
 }
+
+export async function updateDocument(
+  id: number,
+  input: {
+    title: string;
+    tags: string[];
+  },
+): Promise<KnowledgeDocument> {
+  const response = await fetch(`/api/documents/${id}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not update source");
+  }
+
+  return response.json() as Promise<KnowledgeDocument>;
+}
+
+export async function deleteDocument(id: number): Promise<void> {
+  const response = await fetch(`/api/documents/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not delete source");
+  }
+}

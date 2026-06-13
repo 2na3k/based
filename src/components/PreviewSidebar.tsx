@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { AlertCircle, ExternalLink, FileText, Loader2, X } from "lucide-react";
-import { formatMeta, TYPE_LABELS } from "../lib/documents";
 import type { KnowledgeDocument } from "../lib/types";
 
 interface PreviewSidebarProps {
@@ -55,24 +54,11 @@ export function PreviewSidebar({ document, onClose, onResizeStart }: PreviewSide
       <button className="preview-resize-handle" aria-label="Resize preview" title="Resize preview" onPointerDown={onResizeStart} />
       <div className="preview-head">
         <div className="preview-title-wrap">
-          <span className="type-badge">{TYPE_LABELS[document.type]}</span>
           <div className="preview-title">{document.title}</div>
         </div>
         <button className="icon-btn" title="Close preview" onClick={onClose}>
           <X size={14} />
         </button>
-      </div>
-
-      <div className="preview-meta">
-        <div className="preview-source">{document.source}</div>
-        <div>{formatMeta(document)}</div>
-        {document.tags.length ? (
-          <div className="preview-tags">
-            {document.tags.map((tag) => (
-              <span key={tag}>#{tag}</span>
-            ))}
-          </div>
-        ) : null}
       </div>
 
       <div className="preview-body">

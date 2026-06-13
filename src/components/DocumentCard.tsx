@@ -5,28 +5,61 @@ import type { KnowledgeDocument } from "../lib/types";
 interface DocumentCardProps {
   doc: KnowledgeDocument;
   selected: boolean;
+  onActions: (doc: KnowledgeDocument) => void;
   onSelect: (doc: KnowledgeDocument) => void;
-  onShowMessage: (message: string) => void;
   onTagClick: (tag: string) => void;
 }
 
-export function DocumentCard({ doc, selected, onSelect, onShowMessage, onTagClick }: DocumentCardProps) {
+function CardPreview({ doc }: { doc: KnowledgeDocument }) {
+  if (doc.type === "web") {
+    return (
+      <div className="card-preview web-preview" aria-hidden="true">
+        <div className="web-bar">
+          <span />
+          <span>{doc.source.replace(/^https?:\/\//, "")}</span>
+        </div>
+        <div className="web-block wide" />
+        <div className="web-block" />
+        <div className="web-block short" />
+      </div>
+    );
+  }
+
+  if (doc.type === "xlsx") {
+    return (
+      <div className="card-preview sheet-preview" aria-hidden="true">
+        {Array.from({ length: 24 }, (_, index) => (
+          <span key={index} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`card-preview file-preview ${doc.type}-preview`} aria-hidden="true">
+      <div className="file-page">
+        <span className="file-corner" />
+        <span />
+        <span />
+        <span />
+        <span className="short" />
+      </div>
+    </div>
+  );
+}
+
+export function DocumentCard({ doc, selected, onActions, onSelect, onTagClick }: DocumentCardProps) {
   return (
     <article className={`doc-card${doc.pinned ? " pinned" : ""}${selected ? " selected" : ""}`} onClick={() => onSelect(doc)}>
-      <div className="card-preview" aria-hidden="true">
-        <div className="preview-lines">
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
+      <CardPreview doc={doc} />
       <div className="card-top">
         <span className="type-badge">{TYPE_LABELS[doc.type]}</span>
         <button
           className="icon-btn card-menu"
+          title="Source actions"
           onClick={(event) => {
             event.stopPropagation();
-            onShowMessage(doc.originalName);
+            onActions(doc);
           }}
         >
           <MoreVertical size={14} />
@@ -35,9 +68,6 @@ export function DocumentCard({ doc, selected, onSelect, onShowMessage, onTagClic
       <div className="card-body">
         <div className="card-title">{doc.title}</div>
         <div className="card-source">{doc.source}</div>
-      </div>
-      <div className="card-foot">
-        <span className="card-meta">{formatMeta(doc)}</span>
         {doc.tags.length ? (
           <span className="card-tags" aria-label="Document tags">
             {doc.tags.map((tag) => (
@@ -54,6 +84,9 @@ export function DocumentCard({ doc, selected, onSelect, onShowMessage, onTagClic
             ))}
           </span>
         ) : null}
+      </div>
+      <div className="card-foot">
+        <span className="card-meta">{formatMeta(doc)}</span>
       </div>
     </article>
   );

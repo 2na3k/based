@@ -2,7 +2,7 @@
 
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDocument, addWebDocument, fetchConfig } from "../lib/api";
+import { addDocument, addWebDocument, deleteDocument, fetchConfig, updateDocument } from "../lib/api";
 import {
   FILTER_TYPES,
   inferType,
@@ -20,6 +20,7 @@ import type {
   ViewMode,
 } from "../lib/types";
 import { DocumentGrid } from "./DocumentGrid";
+import { DocumentActionsModal } from "./DocumentActionsModal";
 import { DocumentToolbar } from "./DocumentToolbar";
 import { SettingsModal } from "./SettingsModal";
 import { Sidebar } from "./Sidebar";
@@ -29,12 +30,12 @@ import { PreviewSidebar } from "./PreviewSidebar";
 import { Toast } from "./Toast";
 import { Topbar } from "./Topbar";
 
-const PREVIEW_DEFAULT_WIDTH = 800;
 const PREVIEW_MIN_WIDTH = 360;
-const PREVIEW_MAX_WIDTH = 720;
+const PREVIEW_MAX_WIDTH = 900;
 
 type AppStyle = CSSProperties & {
   "--preview-width"?: string;
+  "--sidebar-toggle-y"?: string;
 };
 
 export function BasedApp() {
@@ -59,7 +60,13 @@ export function BasedApp() {
   const [toast, setToast] = useState("");
   const [previewDocument, setPreviewDocument] =
     useState<KnowledgeDocument | null>(null);
-  const [previewWidth, setPreviewWidth] = useState(PREVIEW_DEFAULT_WIDTH);
+  const [previewWidth, setPreviewWidth] = useState<number | null>(null);
+  const [sidebarToggleY, setSidebarToggleY] = useState(18);
+  const [actionsDocument, setActionsDocument] = useState<KnowledgeDocument | null>(null);
+  const [actionsTitle, setActionsTitle] = useState("");
+  const [actionsTags, setActionsTags] = useState("");
+  const [actionsSaving, setActionsSaving] = useState(false);
+  const [actionsDeleting, setActionsDeleting] = useState(false);
   const [pending, setPending] = useState<PendingSource | null>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formType, setFormType] = useState<DocumentType>("pdf");
@@ -160,12 +167,13 @@ export function BasedApp() {
   function startPreviewResize(event: ReactPointerEvent<HTMLButtonElement>) {
     event.preventDefault();
     const startX = event.clientX;
-    const startWidth = previewWidth;
+    const startWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? previewWidth ?? window.innerWidth * 0.45;
 
     function handlePointerMove(moveEvent: PointerEvent) {
       const nextWidth = startWidth + startX - moveEvent.clientX;
+      const maxWidth = Math.min(PREVIEW_MAX_WIDTH, window.innerWidth * 0.72);
       setPreviewWidth(
-        Math.min(PREVIEW_MAX_WIDTH, Math.max(PREVIEW_MIN_WIDTH, nextWidth)),
+        Math.min(maxWidth, Math.max(PREVIEW_MIN_WIDTH, nextWidth)),
       );
     }
 
@@ -178,6 +186,81 @@ export function BasedApp() {
     document.body.classList.add("resizing-preview");
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+  }
+
+  function startSidebarToggleDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const startY = event.clientY;
+    const startTop = button.getBoundingClientRect().top;
+    let dragged = false;
+
+    function handlePointerMove(moveEvent: PointerEvent) {
+      dragged = true;
+      const nextY = startTop + moveEvent.clientY - startY;
+      setSidebarToggleY(Math.min(window.innerHeight - 46, Math.max(8, nextY)));
+    }
+
+    function handlePointerUp() {
+      document.body.classList.remove("dragging-sidebar-toggle");
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      if (!dragged) {
+        setSidebarCollapsed(false);
+      }
+    }
+
+    document.body.classList.add("dragging-sidebar-toggle");
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  }
+
+  function openActions(doc: KnowledgeDocument) {
+    setActionsDocument(doc);
+    setActionsTitle(doc.title);
+    setActionsTags(doc.tags.join(", "));
+  }
+
+  function closeActions() {
+    setActionsDocument(null);
+    setActionsTitle("");
+    setActionsTags("");
+  }
+
+  async function saveActions() {
+    if (!actionsDocument || !actionsTitle.trim()) return;
+    setActionsSaving(true);
+    try {
+      const updated = await updateDocument(actionsDocument.id, {
+        title: actionsTitle.trim(),
+        tags: parseTags(actionsTags),
+      });
+      setDocuments((current) => current.map((doc) => (doc.id === updated.id ? updated : doc)));
+      setPreviewDocument((current) => (current?.id === updated.id ? updated : current));
+      closeActions();
+      showMessage("Source updated");
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not update source");
+    } finally {
+      setActionsSaving(false);
+    }
+  }
+
+  async function removeActionsDocument() {
+    if (!actionsDocument) return;
+    const documentId = actionsDocument.id;
+    setActionsDeleting(true);
+    try {
+      await deleteDocument(documentId);
+      setDocuments((current) => current.filter((doc) => doc.id !== documentId));
+      setPreviewDocument((current) => (current?.id === documentId ? null : current));
+      closeActions();
+      showMessage("Source deleted");
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not delete source");
+    } finally {
+      setActionsDeleting(false);
+    }
   }
 
   function openPending(file: File) {
@@ -238,7 +321,8 @@ export function BasedApp() {
   }
 
   const appStyle: AppStyle = {
-    "--preview-width": `${previewWidth}px`,
+    ...(previewWidth === null ? {} : { "--preview-width": `${previewWidth}px` }),
+    "--sidebar-toggle-y": `${sidebarToggleY}px`,
   };
 
   return (
@@ -270,6 +354,14 @@ export function BasedApp() {
         onTagsOpenChange={setTagsOpen}
         onThemeChange={setTheme}
       />
+      <button
+        className="sidebar-restore"
+        title="Show sidebar"
+        aria-label="Show sidebar"
+        onPointerDown={startSidebarToggleDrag}
+      >
+        &gt;
+      </button>
 
       <main className="main">
         <Topbar
@@ -296,7 +388,7 @@ export function BasedApp() {
             selectedDocumentId={previewDocument?.id ?? null}
             viewMode={viewMode}
             onDocumentSelect={setPreviewDocument}
-            onShowMessage={showMessage}
+            onDocumentActions={openActions}
             onTagClick={selectTag}
           />
         </section>
@@ -336,6 +428,18 @@ export function BasedApp() {
         onFormTypeChange={setFormType}
         onFormUrlChange={setFormUrl}
         onSave={() => void savePending()}
+      />
+      <DocumentActionsModal
+        deleting={actionsDeleting}
+        document={actionsDocument}
+        saving={actionsSaving}
+        tags={actionsTags}
+        title={actionsTitle}
+        onClose={closeActions}
+        onDelete={() => void removeActionsDocument()}
+        onTagsChange={setActionsTags}
+        onTitleChange={setActionsTitle}
+        onUpdate={() => void saveActions()}
       />
       <Toast message={toast} />
     </div>
