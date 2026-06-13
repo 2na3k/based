@@ -2,10 +2,12 @@
 
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDocument, addWebDocument, deleteDocument, fetchConfig, updateDocument } from "../lib/api";
+import { addDocument, addWebDocument, createNote, deleteDocument, fetchBacklinks, fetchConfig, fetchNote, saveNote, updateDocument, uploadNoteImage } from "../lib/api";
 import {
   inferType,
+  parseNoteMarkdown,
   parseTags,
+  serializeNoteFrontmatter,
   titleFromFile,
   titleFromUrl,
   uniqTags,
@@ -13,14 +15,20 @@ import {
 import type {
   AppConfig,
   DocumentType,
+  DocumentBacklink,
   KnowledgeDocument,
+  NoteMetadata,
   PendingSource,
+  SaveState,
   SortMode,
   ViewMode,
 } from "../lib/types";
+import { CustomFilterPanel } from "./CustomFilterPanel";
 import { DocumentGrid } from "./DocumentGrid";
 import { DocumentActionsModal } from "./DocumentActionsModal";
 import { DocumentToolbar } from "./DocumentToolbar";
+import { NoteEditor } from "./NoteEditor";
+import { NewNoteModal } from "./NewNoteModal";
 import { SettingsModal } from "./SettingsModal";
 import { Sidebar } from "./Sidebar";
 import { SourceChooserModal } from "./SourceChooserModal";
@@ -61,17 +69,30 @@ export function BasedApp() {
   >("documents");
   const [activeType, setActiveType] = useState<DocumentType | "all">("all");
   const [activeTag, setActiveTag] = useState<string>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
   const [sortBy, setSortBy] = useState<SortMode>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceChooserOpen, setSourceChooserOpen] = useState(false);
+  const [newNoteOpen, setNewNoteOpen] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState("");
+  const [newNoteDescription, setNewNoteDescription] = useState("");
+  const [newNoteTags, setNewNoteTags] = useState("");
+  const [newNoteSaving, setNewNoteSaving] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(true);
   const [toast, setToast] = useState("");
   const [previewDocument, setPreviewDocument] =
     useState<KnowledgeDocument | null>(null);
+  const [noteDocument, setNoteDocument] = useState<KnowledgeDocument | null>(null);
+  const [noteMarkdown, setNoteMarkdown] = useState("");
+  const [noteMetadata, setNoteMetadata] = useState<NoteMetadata | null>(null);
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteSaveState, setNoteSaveState] = useState<SaveState>("idle");
+  const [backlinks, setBacklinks] = useState<DocumentBacklink[]>([]);
+  const [backlinksLoading, setBacklinksLoading] = useState(false);
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
   const [sidebarToggleY, setSidebarToggleY] = useState(18);
   const [actionsDocument, setActionsDocument] = useState<KnowledgeDocument | null>(null);
@@ -87,6 +108,7 @@ export function BasedApp() {
   const [saving, setSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const lastAutoTitle = useRef("");
+  const lastSavedNote = useRef("");
 
   useEffect(() => {
     fetchConfig()
@@ -111,6 +133,7 @@ export function BasedApp() {
       if (event.key === "Escape") {
         setSettingsOpen(false);
         setSourceChooserOpen(false);
+        setNewNoteOpen(false);
         setPending(null);
         setPreviewDocument(null);
       }
@@ -118,10 +141,15 @@ export function BasedApp() {
         event.preventDefault();
         document.getElementById("searchInput")?.focus();
       }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        if (!noteDocument || !noteMetadata) return;
+        event.preventDefault();
+        void saveActiveNote();
+      }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [noteDocument, noteMarkdown, noteMetadata]);
 
   useEffect(() => {
     if (!toast) return;
@@ -162,6 +190,23 @@ export function BasedApp() {
 
   const tags = useMemo(() => uniqTags(documents), [documents]);
 
+  useEffect(() => {
+    if (!noteDocument || noteSaveState !== "dirty") return;
+    const timer = window.setTimeout(() => {
+      void saveActiveNote();
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [noteDocument, noteMarkdown, noteMetadata, noteSaveState]);
+
+  useEffect(() => {
+    if (!noteDocument) return;
+    setBacklinksLoading(true);
+    fetchBacklinks(noteDocument.id)
+      .then(setBacklinks)
+      .catch(() => setBacklinks([]))
+      .finally(() => setBacklinksLoading(false));
+  }, [noteDocument]);
+
   const filtered = useMemo(() => {
     const query = searchQ.trim().toLowerCase();
     const result = documents.filter((doc) => {
@@ -187,16 +232,131 @@ export function BasedApp() {
     setToast(message);
   }
 
+  function updateDocumentState(updated: KnowledgeDocument) {
+    setDocuments((current) => current.map((doc) => (doc.id === updated.id ? updated : doc)));
+    setPreviewDocument((current) => (current?.id === updated.id ? updated : current));
+    setNoteDocument((current) => (current?.id === updated.id ? updated : current));
+  }
+
   function selectType(type: DocumentType | "all") {
+    setNoteDocument(null);
     setActiveFilterGroup("documents");
     setActiveType(type);
     setActiveTag("all");
   }
 
   function selectTag(tag: string) {
+    setNoteDocument(null);
     setActiveFilterGroup("tags");
     setActiveTag(tag);
     setActiveType("all");
+  }
+
+  async function openNote(doc: KnowledgeDocument) {
+    setPreviewDocument(null);
+    setNoteDocument(doc);
+    setNoteLoading(true);
+    setNoteSaveState("idle");
+    try {
+      const content = await fetchNote(doc.id);
+      setNoteDocument(content.document);
+      setNoteMarkdown(content.markdown);
+      setNoteMetadata(content.metadata);
+      lastSavedNote.current = content.markdown;
+      setNoteSaveState("saved");
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not load note");
+      setNoteDocument(null);
+    } finally {
+      setNoteLoading(false);
+    }
+  }
+
+  function selectDocument(doc: KnowledgeDocument) {
+    if (doc.type === "note") {
+      void openNote(doc);
+      return;
+    }
+    setNoteDocument(null);
+    setNoteMarkdown("");
+    setNoteMetadata(null);
+    setPreviewDocument(doc);
+  }
+
+  function openNewNote() {
+    setNewNoteTitle("");
+    setNewNoteDescription("");
+    setNewNoteTags("");
+    setNewNoteOpen(true);
+  }
+
+  async function createNewNote() {
+    if (!newNoteTitle.trim()) return;
+    setNewNoteSaving(true);
+    try {
+      const content = await createNote({
+        title: newNoteTitle.trim(),
+        description: newNoteDescription.trim(),
+        tags: parseTags(newNoteTags),
+      });
+      setDocuments((current) => [content.document, ...current]);
+      setNoteDocument(content.document);
+      setNoteMarkdown(content.markdown);
+      setNoteMetadata(content.metadata);
+      lastSavedNote.current = content.markdown;
+      setNoteSaveState("saved");
+      setPreviewDocument(null);
+      setNewNoteOpen(false);
+      setNewNoteTitle("");
+      setNewNoteDescription("");
+      setNewNoteTags("");
+      showMessage("Note created");
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not create note");
+    } finally {
+      setNewNoteSaving(false);
+    }
+  }
+
+  async function saveActiveNote() {
+    if (!noteDocument || !noteMetadata || noteSaveState === "saving") return;
+    setNoteSaveState("saving");
+    try {
+      const content = await saveNote(noteDocument.id, {
+        markdown: noteMarkdown,
+        metadata: noteMetadata,
+      });
+      updateDocumentState(content.document);
+      setNoteMarkdown(content.markdown);
+      setNoteMetadata(content.metadata);
+      lastSavedNote.current = content.markdown;
+      setNoteSaveState("saved");
+    } catch (caught: unknown) {
+      setNoteSaveState("error");
+      showMessage(caught instanceof Error ? caught.message : "Could not save note");
+    }
+  }
+
+  function changeNoteMarkdown(markdown: string) {
+    setNoteMarkdown(markdown);
+    setNoteSaveState(markdown === lastSavedNote.current ? "saved" : "dirty");
+  }
+
+  function renameNote(title: string) {
+    if (!noteDocument || !noteMetadata) return;
+    const metadata = { ...noteMetadata, name: title };
+    const parsed = parseNoteMarkdown(noteMarkdown);
+    const markdown = `${serializeNoteFrontmatter(metadata)}${parsed.body.replace(/^\n+/, "")}`;
+    setNoteDocument({ ...noteDocument, title });
+    setNoteMetadata(metadata);
+    changeNoteMarkdown(markdown);
+  }
+
+  async function pasteNoteImage(file: File) {
+    if (!noteDocument) throw new Error("Open a note before pasting images");
+    const uploaded = await uploadNoteImage(noteDocument.id, file);
+    showMessage("Image attached");
+    return uploaded.markdownPath;
   }
 
   function startPreviewResize(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -270,8 +430,7 @@ export function BasedApp() {
         title: actionsTitle.trim(),
         tags: parseTags(actionsTags),
       });
-      setDocuments((current) => current.map((doc) => (doc.id === updated.id ? updated : doc)));
-      setPreviewDocument((current) => (current?.id === updated.id ? updated : current));
+      updateDocumentState(updated);
       closeActions();
       showMessage("Source updated");
     } catch (caught: unknown) {
@@ -289,6 +448,7 @@ export function BasedApp() {
       await deleteDocument(documentId);
       setDocuments((current) => current.filter((doc) => doc.id !== documentId));
       setPreviewDocument((current) => (current?.id === documentId ? null : current));
+      setNoteDocument((current) => (current?.id === documentId ? null : current));
       closeActions();
       showMessage("Source deleted");
     } catch (caught: unknown) {
@@ -404,29 +564,57 @@ export function BasedApp() {
           fileInput={fileInput}
           searchQ={searchQ}
           onFilesChange={handleFiles}
+          onNewNote={openNewNote}
           onOpenSourceChooser={() => setSourceChooserOpen(true)}
           onSearchChange={setSearchQ}
         />
 
         <section className="content">
-          <DocumentToolbar
-            activeType={activeType}
-            sortBy={sortBy}
-            viewMode={viewMode}
-            onActiveTypeChange={selectType}
-            onSortChange={setSortBy}
-            onViewModeChange={setViewMode}
-          />
-          <DocumentGrid
-            documents={filtered}
-            error={error}
-            loading={loading}
-            selectedDocumentId={previewDocument?.id ?? null}
-            viewMode={viewMode}
-            onDocumentSelect={setPreviewDocument}
-            onDocumentActions={openActions}
-            onTagClick={selectTag}
-          />
+          {noteDocument ? (
+            <NoteEditor
+              backlinks={backlinks}
+              backlinksLoading={backlinksLoading}
+              documents={documents}
+              loading={noteLoading}
+              markdown={noteMarkdown}
+              metadata={noteMetadata}
+              saveState={noteSaveState}
+              title={noteDocument.title}
+              onMarkdownChange={changeNoteMarkdown}
+              onPasteImage={pasteNoteImage}
+              onSave={() => void saveActiveNote()}
+              onTitleChange={renameNote}
+            />
+          ) : (
+            <>
+              <DocumentToolbar
+                filtersOpen={filtersOpen}
+                sortBy={sortBy}
+                viewMode={viewMode}
+                onFiltersOpenChange={setFiltersOpen}
+                onSortChange={setSortBy}
+                onViewModeChange={setViewMode}
+              />
+              <CustomFilterPanel
+                activeTag={activeTag}
+                activeType={activeType}
+                open={filtersOpen}
+                tags={tags}
+                onActiveTagChange={selectTag}
+                onActiveTypeChange={selectType}
+              />
+              <DocumentGrid
+                documents={filtered}
+                error={error}
+                loading={loading}
+                selectedDocumentId={previewDocument?.id ?? null}
+                viewMode={viewMode}
+                onDocumentSelect={selectDocument}
+                onDocumentActions={openActions}
+                onTagClick={selectTag}
+              />
+            </>
+          )}
         </section>
       </main>
 
@@ -441,6 +629,18 @@ export function BasedApp() {
         open={sourceChooserOpen}
         onClose={() => setSourceChooserOpen(false)}
         onOpenWebPending={openWebPending}
+      />
+      <NewNoteModal
+        description={newNoteDescription}
+        open={newNoteOpen}
+        saving={newNoteSaving}
+        tags={newNoteTags}
+        title={newNoteTitle}
+        onClose={() => setNewNoteOpen(false)}
+        onDescriptionChange={setNewNoteDescription}
+        onSave={() => void createNewNote()}
+        onTagsChange={setNewNoteTags}
+        onTitleChange={setNewNoteTitle}
       />
       <SettingsModal
         open={settingsOpen}

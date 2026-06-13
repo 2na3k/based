@@ -2,11 +2,15 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { homedir } from "node:os";
 import { PrismaClient, type Document } from "@prisma/client";
+import { slugifyNoteTitle } from "../../../lib/documents";
 import type { DocumentType, KnowledgeDocument, StorageInfo } from "../../../lib/types";
 
 const BASE_DIR = join(homedir(), ".based");
 const STORAGE_DIR = join(BASE_DIR, "storage");
 const DOCUMENTS_DIR = join(BASE_DIR, "documents");
+const NOTES_DIR = join(DOCUMENTS_DIR, "notes");
+const ATTACHMENTS_DIR = join(DOCUMENTS_DIR, "attachments");
+const IMAGES_DIR = join(ATTACHMENTS_DIR, "images");
 const CONFIG_PATH = join(BASE_DIR, "config.toml");
 const DB_PATH = join(STORAGE_DIR, "based.sqlite");
 
@@ -22,12 +26,18 @@ export function storageInfo(): StorageInfo {
     configPath: CONFIG_PATH,
     storageDir: STORAGE_DIR,
     documentsDir: DOCUMENTS_DIR,
+    notesDir: NOTES_DIR,
+    attachmentsDir: ATTACHMENTS_DIR,
+    imagesDir: IMAGES_DIR,
   };
 }
 
 export async function ensureStorage() {
   await mkdir(STORAGE_DIR, { recursive: true });
   await mkdir(DOCUMENTS_DIR, { recursive: true });
+  await mkdir(NOTES_DIR, { recursive: true });
+  await mkdir(ATTACHMENTS_DIR, { recursive: true });
+  await mkdir(IMAGES_DIR, { recursive: true });
   for (const type of TYPES) {
     await mkdir(join(DOCUMENTS_DIR, type), { recursive: true });
   }
@@ -96,6 +106,33 @@ export function storedDocumentPath(type: DocumentType, fileName: string) {
   const fallback = `source${extname(fileName)}`;
   const storedName = `${Date.now()}-${safeName(fileName || fallback)}`;
   return join(DOCUMENTS_DIR, type, storedName);
+}
+
+export function storedNotePath(title: string) {
+  return join(NOTES_DIR, `${Date.now()}-${slugifyNoteTitle(title)}.md`);
+}
+
+export function storedImagePath(fileName: string, mimeType: string) {
+  const ext = extname(fileName) || extensionFromMime(mimeType) || ".png";
+  const name = safeName(fileName.replace(/\.[^.]+$/, "") || "pasted-image");
+  const storedName = `${Date.now()}-${name}${ext}`;
+  return {
+    absolutePath: join(IMAGES_DIR, storedName),
+    fileName: storedName,
+    markdownPath: `attachments/images/${storedName}`,
+  };
+}
+
+export function attachmentImagePath(fileName: string) {
+  return join(IMAGES_DIR, safeName(fileName));
+}
+
+function extensionFromMime(mimeType: string) {
+  if (mimeType === "image/jpeg") return ".jpg";
+  if (mimeType === "image/webp") return ".webp";
+  if (mimeType === "image/gif") return ".gif";
+  if (mimeType === "image/png") return ".png";
+  return "";
 }
 
 export function isDocumentType(value: FormDataEntryValue | null): value is DocumentType {

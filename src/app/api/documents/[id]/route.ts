@@ -1,5 +1,6 @@
-import { unlink } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
+import { mergeNoteMarkdown, parseNoteMarkdown } from "../../../../lib/documents";
 import { prisma, rowToDocument, tagsFromUnknown } from "../../_lib/storage";
 
 export const runtime = "nodejs";
@@ -39,11 +40,25 @@ export async function PATCH(request: Request, context: RouteContext) {
     return new Response("Document not found", { status: 404 });
   }
 
+  const tags = tagsFromUnknown(input.tags);
+  if (existing.type === "note") {
+    const markdown = await readFile(existing.storedPath, "utf8").catch(() => "");
+    const parsed = parseNoteMarkdown(markdown);
+    await writeFile(
+      existing.storedPath,
+      mergeNoteMarkdown(markdown, {
+        ...parsed.metadata,
+        name: input.title.trim(),
+        tags,
+      }),
+    );
+  }
+
   const row = await client.document.update({
     where: { id: documentId },
     data: {
       title: input.title.trim(),
-      tags: JSON.stringify(tagsFromUnknown(input.tags)),
+      tags: JSON.stringify(tags),
     },
   });
 

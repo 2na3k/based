@@ -1,4 +1,4 @@
-import type { DocumentType, KnowledgeDocument } from "./types";
+import type { DocumentType, KnowledgeDocument, NoteMetadata } from "./types";
 
 export const TYPE_LABELS: Record<DocumentType, string> = {
   pdf: "PDF",
@@ -10,6 +10,7 @@ export const TYPE_LABELS: Record<DocumentType, string> = {
 };
 
 export const FILTER_TYPES: DocumentType[] = ["pdf", "doc", "xlsx", "web", "paper", "note"];
+export const DEFAULT_NOTE_TITLE = "Untitled";
 
 export function inferType(file: File): DocumentType {
   const lower = file.name.toLowerCase();
@@ -76,4 +77,121 @@ export function parseTags(value: string): string[] {
     .split(/[,\s]+/)
     .map((tag) => tag.trim().replace(/^#/, ""))
     .filter(Boolean);
+}
+
+export function slugifyNoteTitle(title: string): string {
+  const slug = title
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "untitled";
+}
+
+function escapeYaml(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function parseYamlString(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  }
+  return trimmed;
+}
+
+function parseYamlTags(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return parseTags(trimmed);
+  return trimmed
+    .slice(1, -1)
+    .split(",")
+    .map((tag) => parseYamlString(tag.trim()).replace(/^#/, ""))
+    .filter(Boolean);
+}
+
+export function defaultNoteMetadata(input?: Partial<NoteMetadata>): NoteMetadata {
+  return {
+    name: input?.name?.trim() || DEFAULT_NOTE_TITLE,
+    description: input?.description ?? "",
+    tags: input?.tags ?? [],
+    created: input?.created || new Date().toISOString(),
+  };
+}
+
+export function serializeNoteFrontmatter(metadata: NoteMetadata): string {
+  const tags = metadata.tags.map((tag) => `"${escapeYaml(tag)}"`).join(", ");
+  return [
+    "---",
+    `name: "${escapeYaml(metadata.name)}"`,
+    `description: "${escapeYaml(metadata.description)}"`,
+    `tags: [${tags}]`,
+    `created: "${escapeYaml(metadata.created)}"`,
+    "---",
+    "",
+  ].join("\n");
+}
+
+export function parseNoteMarkdown(markdown: string): { metadata: NoteMetadata; body: string } {
+  if (!markdown.startsWith("---\n")) {
+    return { metadata: defaultNoteMetadata(), body: markdown };
+  }
+
+  const closeIndex = markdown.indexOf("\n---", 4);
+  if (closeIndex === -1) {
+    return { metadata: defaultNoteMetadata(), body: markdown };
+  }
+
+  const frontmatter = markdown.slice(4, closeIndex).split("\n");
+  const values: Partial<NoteMetadata> = {};
+  for (const line of frontmatter) {
+    const separator = line.indexOf(":");
+    if (separator === -1) continue;
+    const key = line.slice(0, separator).trim();
+    const value = line.slice(separator + 1).trim();
+    if (key === "name") values.name = parseYamlString(value);
+    if (key === "description") values.description = parseYamlString(value);
+    if (key === "tags") values.tags = parseYamlTags(value);
+    if (key === "created") values.created = parseYamlString(value);
+  }
+
+  const bodyStart = markdown.slice(closeIndex + 4).startsWith("\n") ? closeIndex + 5 : closeIndex + 4;
+  return {
+    metadata: defaultNoteMetadata(values),
+    body: markdown.slice(bodyStart),
+  };
+}
+
+export function mergeNoteMarkdown(markdown: string, metadata: NoteMetadata): string {
+  const parsed = parseNoteMarkdown(markdown);
+  return `${serializeNoteFrontmatter(metadata)}${parsed.body.replace(/^\n+/, "")}`;
+}
+
+export function wikiLinkTargets(markdown: string): string[] {
+  const targets = new Set<string>();
+  for (const match of markdown.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) {
+    const target = match[1]?.trim();
+    if (target) targets.add(target);
+  }
+  return Array.from(targets);
+}
+
+export function markdownExcerptsForTarget(markdown: string, targetTitle: string): string[] {
+  const target = targetTitle.toLowerCase();
+  return markdown
+    .split(/\n+/)
+    .filter((line) => wikiLinkTargets(line).some((link) => link.toLowerCase() === target))
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+export function citationFootnotes(markdown: string, documents: KnowledgeDocument[]): string {
+  const targets = wikiLinkTargets(markdown).map((target) => target.toLowerCase());
+  const cited = documents.filter((doc) => targets.includes(doc.title.toLowerCase()));
+  if (!cited.length) return "";
+  return cited
+    .map((doc, index) => `[^cite-${index + 1}]: ${doc.title}${doc.source ? `, ${doc.source}` : ""}.`)
+    .join("\n");
 }

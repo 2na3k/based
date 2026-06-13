@@ -17,7 +17,7 @@ export function SourceChooserModal({ fileInput, open, onClose, onOpenWebPending 
           <Upload size={14} />
           <span className="setting-main">
             <span className="setting-name">Upload file</span>
-            <span className="setting-desc">Add PDF, document, spreadsheet, or note files.</span>
+            <span className="setting-desc">Add PDF, document, spreadsheet, or paper files.</span>
           </span>
         </button>
         <button className="setting-row" onClick={onOpenWebPending}>

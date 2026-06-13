@@ -1,6 +1,7 @@
 export type DocumentType = "pdf" | "doc" | "xlsx" | "web" | "paper" | "note";
 export type ViewMode = "list" | "card";
 export type SortMode = "recent" | "alpha" | "type";
+export type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
 export interface KnowledgeDocument {
   id: number;
@@ -20,6 +21,9 @@ export interface StorageInfo {
   configPath: string;
   storageDir: string;
   documentsDir: string;
+  notesDir: string;
+  attachmentsDir: string;
+  imagesDir: string;
 }
 
 export interface AppConfig {
@@ -38,3 +42,30 @@ export interface PendingWebSource {
 }
 
 export type PendingSource = PendingFileSource | PendingWebSource;
+
+export interface NoteMetadata {
+  name: string;
+  description: string;
+  tags: string[];
+  created: string;
+}
+
+export interface NoteContent {
+  document: KnowledgeDocument;
+  markdown: string;
+  metadata: NoteMetadata;
+}
+
+export interface DocumentBacklink {
+  document: KnowledgeDocument;
+  excerpts: string[];
+}
+
+export interface CitationFormat {
+  template: string;
+}
+
+export interface NoteImageUpload {
+  markdownPath: string;
+  renderUrl: string;
+}

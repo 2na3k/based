@@ -39,6 +39,7 @@ export function DocumentActionsModal({
           <TagInput value={tags} onChange={onTagsChange} />
         </label>
         <div className="source-file">{document?.source}</div>
+        {document?.type === "note" ? <div className="source-file">Title and tags sync to Markdown frontmatter.</div> : null}
         <div className="form-actions split-actions">
           <button className="btn-danger" disabled={deleting || saving} onClick={onDelete}>
             {deleting ? "Deleting..." : "Delete"}

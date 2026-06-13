@@ -1,27 +1,22 @@
-import { Grid2X2, List } from "lucide-react";
-import { FILTER_TYPES, TYPE_LABELS } from "../lib/documents";
-import type { DocumentType, SortMode, ViewMode } from "../lib/types";
+import { Filter, Grid2X2, List } from "lucide-react";
+import type { SortMode, ViewMode } from "../lib/types";
 
 interface DocumentToolbarProps {
-  activeType: DocumentType | "all";
+  filtersOpen: boolean;
   sortBy: SortMode;
   viewMode: ViewMode;
-  onActiveTypeChange: (type: DocumentType | "all") => void;
+  onFiltersOpenChange: (open: boolean | ((open: boolean) => boolean)) => void;
   onSortChange: (sort: SortMode) => void;
   onViewModeChange: (viewMode: ViewMode) => void;
 }
 
-export function DocumentToolbar({ activeType, sortBy, viewMode, onActiveTypeChange, onSortChange, onViewModeChange }: DocumentToolbarProps) {
+export function DocumentToolbar({ filtersOpen, sortBy, viewMode, onFiltersOpenChange, onSortChange, onViewModeChange }: DocumentToolbarProps) {
   return (
     <div className="filter-bar">
-      <button className={`chip${activeType === "all" ? " on" : ""}`} onClick={() => onActiveTypeChange("all")}>
-        All
+      <button className={`chip${filtersOpen ? " on" : ""}`} onClick={() => onFiltersOpenChange((open) => !open)}>
+        <Filter size={12} />
+        Filters
       </button>
-      {FILTER_TYPES.map((type) => (
-        <button key={type} className={`chip${activeType === type ? " on" : ""}`} onClick={() => onActiveTypeChange(type)}>
-          {TYPE_LABELS[type]}
-        </button>
-      ))}
       <div className="filter-right">
         <div className="view-toggle" aria-label="View mode">
           <button className={`view-btn${viewMode === "list" ? " active" : ""}`} title="List view" onClick={() => onViewModeChange("list")}>

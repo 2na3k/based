@@ -5,11 +5,12 @@ interface TopbarProps {
   fileInput: RefObject<HTMLInputElement | null>;
   searchQ: string;
   onFilesChange: (files: FileList | null) => void;
+  onNewNote: () => void;
   onOpenSourceChooser: () => void;
   onSearchChange: (value: string) => void;
 }
 
-export function Topbar({ fileInput, searchQ, onFilesChange, onOpenSourceChooser, onSearchChange }: TopbarProps) {
+export function Topbar({ fileInput, searchQ, onFilesChange, onNewNote, onOpenSourceChooser, onSearchChange }: TopbarProps) {
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -28,6 +29,9 @@ export function Topbar({ fileInput, searchQ, onFilesChange, onOpenSourceChooser,
         </div>
       </div>
       <div className="topbar-right">
+        <button className="btn-ghost" onClick={onNewNote}>
+          New note
+        </button>
         <button className="btn-primary" onClick={onOpenSourceChooser}>
           + Add
         </button>
