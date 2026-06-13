@@ -1,6 +1,7 @@
 import { MoreVertical } from "lucide-react";
 import { formatDate, TYPE_LABELS } from "../lib/documents";
 import type { KnowledgeDocument } from "../lib/types";
+import { PdfCanvas } from "./PdfCanvas";
 
 interface DocumentCardProps {
   doc: KnowledgeDocument;
@@ -11,6 +12,10 @@ interface DocumentCardProps {
 }
 
 function CardPreview({ doc }: { doc: KnowledgeDocument }) {
+  if (doc.type === "pdf") {
+    return <PdfCanvas className="card-preview pdf-card-preview" documentId={doc.id} mode="thumbnail" title={doc.title} />;
+  }
+
   if (doc.type === "web") {
     return (
       <div className="card-preview web-preview" aria-hidden="true">
