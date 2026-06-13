@@ -1,21 +1,17 @@
-import { ChevronDown, ChevronsLeft, ChevronsRight, File, FileSpreadsheet, FileText, Moon, Settings, Sun } from "lucide-react";
-import { FILTER_TYPES, TYPE_LABELS } from "../lib/documents";
+import { ChevronDown, ChevronsLeft, ChevronsRight, FileText, Moon, Settings, Sun } from "lucide-react";
 import type { DocumentType, KnowledgeDocument } from "../lib/types";
 
 interface SidebarProps {
   activeFilterGroup: "documents" | "tags";
   activeTag: string;
   activeType: DocumentType | "all";
-  counts: Record<DocumentType, number>;
   documents: KnowledgeDocument[];
-  documentsOpen: boolean;
   sidebarCollapsed: boolean;
   tags: string[];
   tagsOpen: boolean;
   theme: "light" | "dark";
   onActiveTagChange: (tag: string) => void;
   onActiveTypeChange: (type: DocumentType | "all") => void;
-  onDocumentsOpenChange: (open: boolean | ((open: boolean) => boolean)) => void;
   onOpenSettings: () => void;
   onSidebarCollapsedChange: (collapsed: boolean | ((collapsed: boolean) => boolean)) => void;
   onTagsOpenChange: (open: boolean | ((open: boolean) => boolean)) => void;
@@ -26,16 +22,13 @@ export function Sidebar({
   activeFilterGroup,
   activeTag,
   activeType,
-  counts,
   documents,
-  documentsOpen,
   sidebarCollapsed,
   tags,
   tagsOpen,
   theme,
   onActiveTagChange,
   onActiveTypeChange,
-  onDocumentsOpenChange,
   onOpenSettings,
   onSidebarCollapsedChange,
   onTagsOpenChange,
@@ -55,32 +48,14 @@ export function Sidebar({
       </div>
 
       <nav className="sidebar-nav">
-        <div className={`nav-group${documentsOpen ? "" : " collapsed"}`}>
+        <div className="nav-group">
           <button
             className={`nav-item nav-parent${activeFilterGroup === "documents" && activeType === "all" ? " active" : ""}`}
-            aria-expanded={documentsOpen}
-            onClick={() => {
-              onDocumentsOpenChange((open) => !open);
-              onActiveTypeChange("all");
-            }}
+            onClick={() => onActiveTypeChange("all")}
           >
             <FileText size={14} />
             <span className="nav-label">All documents</span>
-            <ChevronDown className="nav-chevron" size={12} />
           </button>
-          <div className="nav-children">
-            {FILTER_TYPES.map((type) => (
-              <button
-                key={type}
-                className={`nav-item nav-child${activeFilterGroup === "documents" && activeType === type ? " active" : ""}`}
-                onClick={() => onActiveTypeChange(type)}
-              >
-                {type === "xlsx" ? <FileSpreadsheet size={14} /> : <File size={14} />}
-                <span className="nav-label">{TYPE_LABELS[type]}</span>
-                <span className="nav-count">{counts[type]}</span>
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className={`nav-group tag-group${tagsOpen ? "" : " collapsed"}`}>

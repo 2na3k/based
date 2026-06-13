@@ -4,7 +4,6 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDocument, addWebDocument, deleteDocument, fetchConfig, updateDocument } from "../lib/api";
 import {
-  FILTER_TYPES,
   inferType,
   parseTags,
   titleFromFile,
@@ -55,7 +54,6 @@ export function BasedApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceChooserOpen, setSourceChooserOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [documentsOpen, setDocumentsOpen] = useState(true);
   const [tagsOpen, setTagsOpen] = useState(true);
   const [toast, setToast] = useState("");
   const [previewDocument, setPreviewDocument] =
@@ -117,15 +115,6 @@ export function BasedApp() {
   }, [toast]);
 
   const tags = useMemo(() => uniqTags(documents), [documents]);
-  const counts = useMemo(() => {
-    return FILTER_TYPES.reduce<Record<DocumentType, number>>(
-      (acc, type) => ({
-        ...acc,
-        [type]: documents.filter((doc) => doc.type === type).length,
-      }),
-      { pdf: 0, doc: 0, xlsx: 0, web: 0, paper: 0, note: 0 },
-    );
-  }, [documents]);
 
   const filtered = useMemo(() => {
     const query = searchQ.trim().toLowerCase();
@@ -339,16 +328,13 @@ export function BasedApp() {
         activeFilterGroup={activeFilterGroup}
         activeTag={activeTag}
         activeType={activeType}
-        counts={counts}
         documents={documents}
-        documentsOpen={documentsOpen}
         sidebarCollapsed={sidebarCollapsed}
         tags={tags}
         tagsOpen={tagsOpen}
         theme={theme}
         onActiveTagChange={selectTag}
         onActiveTypeChange={selectType}
-        onDocumentsOpenChange={setDocumentsOpen}
         onOpenSettings={() => setSettingsOpen(true)}
         onSidebarCollapsedChange={setSidebarCollapsed}
         onTagsOpenChange={setTagsOpen}

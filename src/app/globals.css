@@ -127,9 +127,10 @@ body.dragging-sidebar-toggle, body.dragging-sidebar-toggle .sidebar-restore { cu
 .pdf-render-thumbnail .pdf-pages { width: 100%; height: 100%; display: grid; place-items: center; overflow: hidden; }
 .pdf-page { position: relative; background: var(--surface); }
 .pdf-canvas { display: block; }
-.pdf-text-layer { position: absolute; inset: 0; overflow: hidden; opacity: 0.2; line-height: 1; text-align: initial; transform-origin: 0 0; }
+.pdf-text-layer { position: absolute; inset: 0; overflow: hidden; opacity: 1; line-height: 1; text-align: initial; transform-origin: 0 0; }
 .pdf-text-layer span, .pdf-text-layer br { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
-.pdf-text-layer ::selection { background: rgba(0, 95, 255, 0.28); }
+.pdf-text-layer span::selection { background: rgba(44, 116, 255, 0.35); color: transparent; }
+.pdf-text-layer ::selection { background: rgba(44, 116, 255, 0.35); color: transparent; }
 .pdf-render-thumbnail .pdf-page { max-width: 74%; max-height: 100%; border-radius: 5px; overflow: hidden; box-shadow: 0 5px 16px rgba(0, 0, 0, 0.08); user-select: none; }
 .pdf-render-thumbnail .pdf-canvas { max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; background: var(--surface); }
 .pdf-render-thumbnail .pdf-text-layer { display: none; }
@@ -226,6 +227,9 @@ body.resizing-preview .app { transition: none; }
 .preview-body { flex: 1; min-height: 0; background: var(--bg); }
 .pdf-render-preview { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .pdf-preview-toolbar { height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--tx3); font-family: var(--mono); font-size: 10px; flex-shrink: 0; }
+.pdf-zoom-actions { display: flex; align-items: center; gap: 5px; }
+.pdf-zoom-actions button { min-width: 24px; height: 22px; padding: 0 7px; border: 1px solid var(--border); border-radius: 6px; color: var(--tx2); background: var(--hover); font-family: var(--mono); font-size: 10px; }
+.pdf-zoom-actions button:hover:not(:disabled) { color: var(--tx); border-color: var(--border2); }
 .pdf-render-preview .pdf-pages { flex: 1; min-height: 0; overflow: auto; display: grid; justify-items: center; align-content: start; gap: 14px; padding: 18px; }
 .pdf-render-preview .pdf-page { max-width: 100%; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08); }
 .pdf-render-preview .pdf-canvas { max-width: 100%; width: auto !important; height: auto !important; background: var(--surface); }

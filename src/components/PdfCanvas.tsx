@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
+import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, RenderTask, TextLayer } from "pdfjs-dist";
 
 type PdfJs = typeof import("pdfjs-dist");
 
@@ -11,13 +12,19 @@ interface PdfCanvasProps {
 }
 
 interface PdfPageCanvasProps {
-  data: ArrayBuffer;
+  lazy: boolean;
   pageNumber: number;
+  pdfDocument: PDFDocumentProxy;
+  renderTextLayer: boolean;
   scale: number;
 }
 
 let pdfJsPromise: Promise<PdfJs> | null = null;
 const PREVIEW_PAGE_BATCH = 4;
+const DEFAULT_PREVIEW_SCALE = 1.2;
+const MIN_PREVIEW_SCALE = 0.7;
+const MAX_PREVIEW_SCALE = 2.4;
+const ZOOM_STEP = 0.2;
 
 function loadPdfJs() {
   pdfJsPromise ??= import("pdfjs-dist").then((pdfjs) => {
@@ -41,24 +48,56 @@ function validatePdfBytes(data: ArrayBuffer) {
   }
 }
 
-function PdfPageCanvas({ data, pageNumber, scale }: PdfPageCanvasProps) {
+function PdfPageCanvas({ lazy, pageNumber, pdfDocument, renderTextLayer, scale }: PdfPageCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
+  const [renderEnabled, setRenderEnabled] = useState(true);
+
+  useEffect(() => {
+    if (!lazy) {
+      setRenderEnabled(true);
+      return;
+    }
+
+    const pageElement = pageRef.current;
+    const scrollRoot = pageElement?.closest(".pdf-pages");
+    if (!pageElement) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) setRenderEnabled(entry.isIntersecting);
+      },
+      {
+        root: scrollRoot instanceof Element ? scrollRoot : null,
+        rootMargin: "1200px 0px",
+      },
+    );
+    observer.observe(pageElement);
+    return () => observer.disconnect();
+  }, [lazy]);
 
   useEffect(() => {
     let cancelled = false;
+    let page: PDFPageProxy | null = null;
+    let renderTask: RenderTask | null = null;
+    let textLayer: TextLayer | null = null;
     const canvas = canvasRef.current;
     const pageElement = pageRef.current;
     const textLayerElement = textLayerRef.current;
     if (!canvas || !pageElement || !textLayerElement) return;
     textLayerElement.replaceChildren();
+    if (!renderEnabled) {
+      canvas.width = 0;
+      canvas.height = 0;
+      return;
+    }
 
-    loadPdfJs()
-      .then(async (pdfjs) => {
-        const loadingTask = pdfjs.getDocument({ data: data.slice(0) });
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(pageNumber);
+    pdfDocument
+      .getPage(pageNumber)
+      .then(async (loadedPage) => {
+        page = loadedPage;
         if (cancelled) return;
 
         const viewport = page.getViewport({ scale });
@@ -74,13 +113,18 @@ function PdfPageCanvas({ data, pageNumber, scale }: PdfPageCanvasProps) {
         canvas.style.height = `${Math.floor(viewport.height)}px`;
         context.setTransform(deviceScale, 0, 0, deviceScale, 0, 0);
         context.clearRect(0, 0, viewport.width, viewport.height);
-        await page.render({ canvas, canvasContext: context, viewport }).promise;
+        renderTask = page.render({ canvas, canvasContext: context, viewport });
+        await renderTask.promise;
+        renderTask = null;
+        if (!renderTextLayer) return;
 
         const textContent = await page.getTextContent();
         if (cancelled) return;
         textLayerElement.style.width = `${Math.floor(viewport.width)}px`;
         textLayerElement.style.height = `${Math.floor(viewport.height)}px`;
-        const textLayer = new pdfjs.TextLayer({
+        const pdfjs = await loadPdfJs();
+        if (cancelled) return;
+        textLayer = new pdfjs.TextLayer({
           container: textLayerElement,
           textContentSource: textContent,
           viewport,
@@ -96,8 +140,14 @@ function PdfPageCanvas({ data, pageNumber, scale }: PdfPageCanvasProps) {
 
     return () => {
       cancelled = true;
+      renderTask?.cancel();
+      textLayer?.cancel();
+      textLayerElement.replaceChildren();
+      page?.cleanup();
+      canvas.width = 0;
+      canvas.height = 0;
     };
-  }, [data, pageNumber, scale]);
+  }, [pageNumber, pdfDocument, renderEnabled, renderTextLayer, scale]);
 
   return (
     <div className="pdf-page" ref={pageRef}>
@@ -108,18 +158,22 @@ function PdfPageCanvas({ data, pageNumber, scale }: PdfPageCanvasProps) {
 }
 
 export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvasProps) {
-  const [data, setData] = useState<ArrayBuffer | null>(null);
   const [error, setError] = useState("");
   const [pageCount, setPageCount] = useState(0);
+  const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [visiblePages, setVisiblePages] = useState(PREVIEW_PAGE_BATCH);
+  const [previewScale, setPreviewScale] = useState(DEFAULT_PREVIEW_SCALE);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
     const controller = new AbortController();
-    setData(null);
+    let disposed = false;
+    let loadingTask: PDFDocumentLoadingTask | null = null;
+    setPdfDocument(null);
     setError("");
     setPageCount(0);
     setVisiblePages(PREVIEW_PAGE_BATCH);
+    setPreviewScale(DEFAULT_PREVIEW_SCALE);
     setState("loading");
 
     fetch(`/api/documents/${documentId}/content`, { signal: controller.signal })
@@ -136,11 +190,14 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
         validatePdfBytes(buffer);
 
         const pdfjs = await loadPdfJs();
-        const loadingTask = pdfjs.getDocument({ data: buffer.slice(0) });
+        loadingTask = pdfjs.getDocument({ data: buffer });
         const pdf = await loadingTask.promise;
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || disposed) {
+          await loadingTask.destroy().catch(() => undefined);
+          return;
+        }
         setPageCount(pdf.numPages);
-        setData(buffer);
+        setPdfDocument(pdf);
         setState("ready");
       })
       .catch((caught: unknown) => {
@@ -149,7 +206,11 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
         setState("error");
       });
 
-    return () => controller.abort();
+    return () => {
+      disposed = true;
+      controller.abort();
+      void loadingTask?.destroy().catch(() => undefined);
+    };
   }, [documentId]);
 
   if (state === "loading") {
@@ -161,7 +222,7 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
     );
   }
 
-  if (state === "error" || !data) {
+  if (state === "error" || !pdfDocument) {
     return (
       <div className={`pdf-render pdf-render-error ${className}`} role="alert">
         <AlertCircle size={mode === "thumbnail" ? 16 : 22} />
@@ -176,6 +237,10 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
     setVisiblePages((current) => Math.min(pageCount, current + PREVIEW_PAGE_BATCH));
   }
 
+  function updatePreviewScale(nextScale: number) {
+    setPreviewScale(Math.min(MAX_PREVIEW_SCALE, Math.max(MIN_PREVIEW_SCALE, Math.round(nextScale * 10) / 10)));
+  }
+
   return (
     <div className={`pdf-render pdf-render-${mode} ${className}`} aria-label={`${title} PDF preview`}>
       {mode === "preview" ? (
@@ -183,7 +248,18 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
           <span>
             {pageCount} {pageCount === 1 ? "page" : "pages"}
           </span>
-          <span>Scroll preview</span>
+          <span className="pdf-zoom-actions" aria-label="PDF zoom controls">
+            <button type="button" disabled={previewScale <= MIN_PREVIEW_SCALE} onClick={() => updatePreviewScale(previewScale - ZOOM_STEP)}>
+              -
+            </button>
+            <span>{Math.round((previewScale / DEFAULT_PREVIEW_SCALE) * 100)}%</span>
+            <button type="button" disabled={previewScale >= MAX_PREVIEW_SCALE} onClick={() => updatePreviewScale(previewScale + ZOOM_STEP)}>
+              +
+            </button>
+            <button type="button" onClick={() => updatePreviewScale(DEFAULT_PREVIEW_SCALE)}>
+              Reset
+            </button>
+          </span>
         </div>
       ) : null}
       <div
@@ -197,7 +273,14 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
         }}
       >
         {pagesToRender.map((page) => (
-          <PdfPageCanvas key={page} data={data} pageNumber={page} scale={mode === "thumbnail" ? 0.42 : 1.2} />
+          <PdfPageCanvas
+            key={page}
+            lazy={mode === "preview"}
+            pageNumber={page}
+            pdfDocument={pdfDocument}
+            renderTextLayer={mode === "preview"}
+            scale={mode === "thumbnail" ? 0.42 : previewScale}
+          />
         ))}
         {mode === "preview" && visiblePages < pageCount ? (
           <button className="pdf-load-more" type="button" onClick={loadMorePages}>
