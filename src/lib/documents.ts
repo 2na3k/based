@@ -45,7 +45,7 @@ export function uniqTags(docs: KnowledgeDocument[]): string[] {
 
 export function parseTags(value: string): string[] {
   return value
-    .split(",")
+    .split(/[,\s]+/)
     .map((tag) => tag.trim().replace(/^#/, ""))
     .filter(Boolean);
 }

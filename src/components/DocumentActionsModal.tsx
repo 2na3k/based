@@ -1,5 +1,6 @@
 import type { KnowledgeDocument } from "../lib/types";
 import { Modal } from "./Modal";
+import { TagInput } from "./TagInput";
 
 interface DocumentActionsModalProps {
   document: KnowledgeDocument | null;
@@ -35,7 +36,7 @@ export function DocumentActionsModal({
         </label>
         <label>
           <span>Tags</span>
-          <input placeholder="research, notes" value={tags} onChange={(event) => onTagsChange(event.target.value)} />
+          <TagInput value={tags} onChange={onTagsChange} />
         </label>
         <div className="source-file">{document?.source}</div>
         <div className="form-actions split-actions">

@@ -1,6 +1,7 @@
 import { FILTER_TYPES, TYPE_LABELS } from "../lib/documents";
 import type { DocumentType, PendingSource } from "../lib/types";
 import { Modal } from "./Modal";
+import { TagInput } from "./TagInput";
 
 interface SourceFormModalProps {
   formTags: string;
@@ -58,7 +59,7 @@ export function SourceFormModal({
         ) : null}
         <label>
           <span>Tags</span>
-          <input placeholder="research, notes" value={formTags} onChange={(event) => onFormTagsChange(event.target.value)} />
+          <TagInput value={formTags} onChange={onFormTagsChange} />
         </label>
         <div className="source-file">{pending?.kind === "file" ? pending.file.name : "Web source"}</div>
         <div className="form-actions">
