@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id           Int    @id @default(autoincrement())
+  type         String
+  title        String
+  source       String
+  tags         String
+  createdAt    String @map("created_at")
+  originalName String @map("original_name")
+  storedPath   String @map("stored_path")
+  size         Int
+  pinned       Int    @default(0)
+
+  @@map("documents")
+}
