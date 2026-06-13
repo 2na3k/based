@@ -18,6 +18,7 @@ export function BasedApp() {
   const [storage, setStorage] = useState<AppConfig["storage"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeFilterGroup, setActiveFilterGroup] = useState<"documents" | "tags">("documents");
   const [activeType, setActiveType] = useState<DocumentType | "all">("all");
   const [activeTag, setActiveTag] = useState<string>("all");
   const [searchQ, setSearchQ] = useState("");
@@ -106,6 +107,18 @@ export function BasedApp() {
     setToast(message);
   }
 
+  function selectType(type: DocumentType | "all") {
+    setActiveFilterGroup("documents");
+    setActiveType(type);
+    setActiveTag("all");
+  }
+
+  function selectTag(tag: string) {
+    setActiveFilterGroup("tags");
+    setActiveTag(tag);
+    setActiveType("all");
+  }
+
   function openPending(file: File) {
     const inferred = inferType(file);
     setPending({ kind: "file", file, inferredType: inferred });
@@ -166,6 +179,7 @@ export function BasedApp() {
       }}
     >
       <Sidebar
+        activeFilterGroup={activeFilterGroup}
         activeTag={activeTag}
         activeType={activeType}
         counts={counts}
@@ -175,8 +189,8 @@ export function BasedApp() {
         tags={tags}
         tagsOpen={tagsOpen}
         theme={theme}
-        onActiveTagChange={setActiveTag}
-        onActiveTypeChange={setActiveType}
+        onActiveTagChange={selectTag}
+        onActiveTypeChange={selectType}
         onDocumentsOpenChange={setDocumentsOpen}
         onOpenSettings={() => setSettingsOpen(true)}
         onSidebarCollapsedChange={setSidebarCollapsed}
@@ -198,11 +212,11 @@ export function BasedApp() {
             activeType={activeType}
             sortBy={sortBy}
             viewMode={viewMode}
-            onActiveTypeChange={setActiveType}
+            onActiveTypeChange={selectType}
             onSortChange={setSortBy}
             onViewModeChange={setViewMode}
           />
-          <DocumentGrid documents={filtered} error={error} loading={loading} viewMode={viewMode} onShowMessage={showMessage} onTagClick={setActiveTag} />
+          <DocumentGrid documents={filtered} error={error} loading={loading} viewMode={viewMode} onShowMessage={showMessage} onTagClick={selectTag} />
         </section>
       </main>
 

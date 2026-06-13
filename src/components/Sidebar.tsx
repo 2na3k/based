@@ -3,6 +3,7 @@ import { FILTER_TYPES, TYPE_LABELS } from "../lib/documents";
 import type { DocumentType, KnowledgeDocument } from "../lib/types";
 
 interface SidebarProps {
+  activeFilterGroup: "documents" | "tags";
   activeTag: string;
   activeType: DocumentType | "all";
   counts: Record<DocumentType, number>;
@@ -22,6 +23,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({
+  activeFilterGroup,
   activeTag,
   activeType,
   counts,
@@ -55,7 +57,7 @@ export function Sidebar({
       <nav className="sidebar-nav">
         <div className={`nav-group${documentsOpen ? "" : " collapsed"}`}>
           <button
-            className={`nav-item nav-parent${activeType === "all" ? " active" : ""}`}
+            className={`nav-item nav-parent${activeFilterGroup === "documents" && activeType === "all" ? " active" : ""}`}
             aria-expanded={documentsOpen}
             onClick={() => {
               onDocumentsOpenChange((open) => !open);
@@ -68,7 +70,11 @@ export function Sidebar({
           </button>
           <div className="nav-children">
             {FILTER_TYPES.map((type) => (
-              <button key={type} className={`nav-item nav-child${activeType === type ? " active" : ""}`} onClick={() => onActiveTypeChange(type)}>
+              <button
+                key={type}
+                className={`nav-item nav-child${activeFilterGroup === "documents" && activeType === type ? " active" : ""}`}
+                onClick={() => onActiveTypeChange(type)}
+              >
                 {type === "xlsx" ? <FileSpreadsheet size={14} /> : <File size={14} />}
                 <span className="nav-label">{TYPE_LABELS[type]}</span>
                 <span className="nav-count">{counts[type]}</span>
@@ -84,13 +90,20 @@ export function Sidebar({
             <ChevronDown className="nav-chevron" size={12} />
           </button>
           <div className="nav-children">
-            <button className={`nav-item nav-child${activeTag === "all" ? " active" : ""}`} onClick={() => onActiveTagChange("all")}>
+            <button
+              className={`nav-item nav-child${activeFilterGroup === "tags" && activeTag === "all" ? " active" : ""}`}
+              onClick={() => onActiveTagChange("all")}
+            >
               <Hash size={14} />
               <span className="nav-label">All tags</span>
               <span className="nav-count">{tags.length}</span>
             </button>
             {tags.map((tag) => (
-              <button key={tag} className={`nav-item nav-child${activeTag === tag ? " active" : ""}`} onClick={() => onActiveTagChange(tag)}>
+              <button
+                key={tag}
+                className={`nav-item nav-child${activeFilterGroup === "tags" && activeTag === tag ? " active" : ""}`}
+                onClick={() => onActiveTagChange(tag)}
+              >
                 <span className="tag-hash">#</span>
                 <span className="nav-label">{tag}</span>
                 <span className="nav-count">{documents.filter((doc) => doc.tags.includes(tag)).length}</span>
