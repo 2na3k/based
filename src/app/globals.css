@@ -13,6 +13,7 @@
   --r: 9px;
   --mono: "Geist Mono", monospace;
   --sans: "Inter", system-ui, sans-serif;
+  --preview-width: 480px;
 }
 
 [data-theme="dark"] {
@@ -37,7 +38,9 @@ button, select { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .app { display: grid; grid-template-columns: 220px 1fr; height: 100vh; transition: grid-template-columns 0.16s ease; }
+.app.preview-open { grid-template-columns: 220px minmax(0, 1fr) var(--preview-width); }
 .app.sidebar-collapsed { grid-template-columns: 54px 1fr; }
+.app.sidebar-collapsed.preview-open { grid-template-columns: 54px minmax(0, 1fr) var(--preview-width); }
 .sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--surface); overflow: hidden; min-width: 0; width: 100%; }
 .sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 14px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .wordmark { font-family: var(--mono); font-weight: 600; font-size: 15px; letter-spacing: -0.03em; color: var(--tx); }
@@ -125,6 +128,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .doc-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px 12px; transition: border-color 0.12s, box-shadow 0.12s; cursor: pointer; position: relative; }
 .doc-card:hover { border-color: var(--border2); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06); }
 .doc-card.pinned { border-color: var(--border2); }
+.doc-card.selected { border-color: var(--tx); }
 .card-preview { height: 118px; margin: -4px -6px 12px; border: 1px solid var(--border); border-radius: 9px; background: linear-gradient(var(--surface), var(--surface)) padding-box, repeating-linear-gradient(0deg, transparent 0 13px, var(--border) 13px 14px); overflow: hidden; position: relative; }
 .card-preview::before { content: ""; position: absolute; inset: 14px; border-radius: 7px; background: var(--hover); }
 .preview-lines { position: absolute; left: 26px; right: 26px; bottom: 22px; display: grid; gap: 7px; }
@@ -185,9 +189,30 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .source-file { font-family: var(--mono); font-size: 11px; color: var(--tx3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
 
+.preview-sidebar { display: flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--border); background: var(--surface); overflow: hidden; position: relative; }
+.preview-resize-handle { position: absolute; inset: 0 auto 0 -4px; width: 8px; cursor: col-resize; z-index: 1; }
+.preview-resize-handle:hover { background: var(--selected); }
+body.resizing-preview { cursor: col-resize; user-select: none; }
+body.resizing-preview .app { transition: none; }
+.preview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px; border-bottom: 1px solid var(--border); }
+.preview-title-wrap { display: grid; gap: 8px; min-width: 0; }
+.preview-title { font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--tx); overflow: hidden; text-overflow: ellipsis; }
+.preview-meta { display: grid; gap: 5px; padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--tx3); font-family: var(--mono); font-size: 11px; }
+.preview-source { color: var(--tx2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.preview-tags span { padding: 2px 6px; border-radius: 999px; background: var(--hover); color: var(--tx2); }
+.preview-body { flex: 1; min-height: 0; background: var(--bg); }
+.pdf-frame { width: 100%; height: 100%; border: 0; background: var(--surface); }
+.preview-empty { height: 100%; display: grid; place-items: center; align-content: center; gap: 8px; padding: 24px; color: var(--tx3); text-align: center; font-size: 13px; }
+.preview-error { color: var(--tx2); }
+.preview-spinner { animation: spin 0.8s linear infinite; }
+a.preview-empty:hover { color: var(--tx); background: var(--hover); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 @media (max-width: 760px) {
-  .app, .app.sidebar-collapsed { grid-template-columns: 1fr; }
+  .app, .app.sidebar-collapsed, .app.preview-open, .app.sidebar-collapsed.preview-open { grid-template-columns: 1fr; }
   .sidebar { display: none; }
+  .preview-sidebar { position: fixed; inset: 0; z-index: 15; }
   .topbar { padding: 0 12px; }
   .content { padding: 14px 12px; }
   .filter-right { width: 100%; margin-left: 0; justify-content: space-between; }

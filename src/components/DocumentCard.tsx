@@ -4,13 +4,15 @@ import type { KnowledgeDocument } from "../lib/types";
 
 interface DocumentCardProps {
   doc: KnowledgeDocument;
+  selected: boolean;
+  onSelect: (doc: KnowledgeDocument) => void;
   onShowMessage: (message: string) => void;
   onTagClick: (tag: string) => void;
 }
 
-export function DocumentCard({ doc, onShowMessage, onTagClick }: DocumentCardProps) {
+export function DocumentCard({ doc, selected, onSelect, onShowMessage, onTagClick }: DocumentCardProps) {
   return (
-    <article className={`doc-card${doc.pinned ? " pinned" : ""}`} onClick={() => onShowMessage(`Stored at ${doc.storedPath}`)}>
+    <article className={`doc-card${doc.pinned ? " pinned" : ""}${selected ? " selected" : ""}`} onClick={() => onSelect(doc)}>
       <div className="card-preview" aria-hidden="true">
         <div className="preview-lines">
           <span />

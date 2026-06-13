@@ -1,24 +1,50 @@
 "use client";
 
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDocument, addWebDocument, fetchConfig } from "../lib/api";
-import { FILTER_TYPES, inferType, parseTags, titleFromFile, titleFromUrl, uniqTags } from "../lib/documents";
-import type { AppConfig, DocumentType, KnowledgeDocument, PendingSource, SortMode, ViewMode } from "../lib/types";
+import {
+  FILTER_TYPES,
+  inferType,
+  parseTags,
+  titleFromFile,
+  titleFromUrl,
+  uniqTags,
+} from "../lib/documents";
+import type {
+  AppConfig,
+  DocumentType,
+  KnowledgeDocument,
+  PendingSource,
+  SortMode,
+  ViewMode,
+} from "../lib/types";
 import { DocumentGrid } from "./DocumentGrid";
 import { DocumentToolbar } from "./DocumentToolbar";
 import { SettingsModal } from "./SettingsModal";
 import { Sidebar } from "./Sidebar";
 import { SourceChooserModal } from "./SourceChooserModal";
 import { SourceFormModal } from "./SourceFormModal";
+import { PreviewSidebar } from "./PreviewSidebar";
 import { Toast } from "./Toast";
 import { Topbar } from "./Topbar";
+
+const PREVIEW_DEFAULT_WIDTH = 800;
+const PREVIEW_MIN_WIDTH = 360;
+const PREVIEW_MAX_WIDTH = 720;
+
+type AppStyle = CSSProperties & {
+  "--preview-width"?: string;
+};
 
 export function BasedApp() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [storage, setStorage] = useState<AppConfig["storage"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilterGroup, setActiveFilterGroup] = useState<"documents" | "tags">("documents");
+  const [activeFilterGroup, setActiveFilterGroup] = useState<
+    "documents" | "tags"
+  >("documents");
   const [activeType, setActiveType] = useState<DocumentType | "all">("all");
   const [activeTag, setActiveTag] = useState<string>("all");
   const [searchQ, setSearchQ] = useState("");
@@ -31,6 +57,9 @@ export function BasedApp() {
   const [documentsOpen, setDocumentsOpen] = useState(true);
   const [tagsOpen, setTagsOpen] = useState(true);
   const [toast, setToast] = useState("");
+  const [previewDocument, setPreviewDocument] =
+    useState<KnowledgeDocument | null>(null);
+  const [previewWidth, setPreviewWidth] = useState(PREVIEW_DEFAULT_WIDTH);
   const [pending, setPending] = useState<PendingSource | null>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formType, setFormType] = useState<DocumentType>("pdf");
@@ -45,7 +74,11 @@ export function BasedApp() {
         setStorage(config.storage);
         setDocuments(config.documents);
       })
-      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Could not load app"))
+      .catch((caught: unknown) =>
+        setError(
+          caught instanceof Error ? caught.message : "Could not load app",
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -59,6 +92,7 @@ export function BasedApp() {
         setSettingsOpen(false);
         setSourceChooserOpen(false);
         setPending(null);
+        setPreviewDocument(null);
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -78,7 +112,10 @@ export function BasedApp() {
   const tags = useMemo(() => uniqTags(documents), [documents]);
   const counts = useMemo(() => {
     return FILTER_TYPES.reduce<Record<DocumentType, number>>(
-      (acc, type) => ({ ...acc, [type]: documents.filter((doc) => doc.type === type).length }),
+      (acc, type) => ({
+        ...acc,
+        [type]: documents.filter((doc) => doc.type === type).length,
+      }),
       { pdf: 0, doc: 0, xlsx: 0, web: 0, paper: 0, note: 0 },
     );
   }, [documents]);
@@ -98,7 +135,8 @@ export function BasedApp() {
 
     return result.sort((a, b) => {
       if (sortBy === "alpha") return a.title.localeCompare(b.title);
-      if (sortBy === "type") return a.type.localeCompare(b.type) || a.title.localeCompare(b.title);
+      if (sortBy === "type")
+        return a.type.localeCompare(b.type) || a.title.localeCompare(b.title);
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [activeTag, activeType, documents, searchQ, sortBy]);
@@ -117,6 +155,29 @@ export function BasedApp() {
     setActiveFilterGroup("tags");
     setActiveTag(tag);
     setActiveType("all");
+  }
+
+  function startPreviewResize(event: ReactPointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = previewWidth;
+
+    function handlePointerMove(moveEvent: PointerEvent) {
+      const nextWidth = startWidth + startX - moveEvent.clientX;
+      setPreviewWidth(
+        Math.min(PREVIEW_MAX_WIDTH, Math.max(PREVIEW_MIN_WIDTH, nextWidth)),
+      );
+    }
+
+    function handlePointerUp() {
+      document.body.classList.remove("resizing-preview");
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    }
+
+    document.body.classList.add("resizing-preview");
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
   }
 
   function openPending(file: File) {
@@ -145,7 +206,12 @@ export function BasedApp() {
   }
 
   async function savePending() {
-    if (!pending || (pending.kind === "file" && !formTitle.trim()) || (pending.kind === "web" && !formUrl.trim())) return;
+    if (
+      !pending ||
+      (pending.kind === "file" && !formTitle.trim()) ||
+      (pending.kind === "web" && !formUrl.trim())
+    )
+      return;
     setSaving(true);
     try {
       const tags = parseTags(formTags);
@@ -163,15 +229,22 @@ export function BasedApp() {
       setPending(null);
       showMessage("Source added");
     } catch (caught: unknown) {
-      showMessage(caught instanceof Error ? caught.message : "Could not add source");
+      showMessage(
+        caught instanceof Error ? caught.message : "Could not add source",
+      );
     } finally {
       setSaving(false);
     }
   }
 
+  const appStyle: AppStyle = {
+    "--preview-width": `${previewWidth}px`,
+  };
+
   return (
     <div
-      className={`app${sidebarCollapsed ? " sidebar-collapsed" : ""}`}
+      className={`app${sidebarCollapsed ? " sidebar-collapsed" : ""}${previewDocument ? " preview-open" : ""}`}
+      style={appStyle}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
@@ -216,11 +289,31 @@ export function BasedApp() {
             onSortChange={setSortBy}
             onViewModeChange={setViewMode}
           />
-          <DocumentGrid documents={filtered} error={error} loading={loading} viewMode={viewMode} onShowMessage={showMessage} onTagClick={selectTag} />
+          <DocumentGrid
+            documents={filtered}
+            error={error}
+            loading={loading}
+            selectedDocumentId={previewDocument?.id ?? null}
+            viewMode={viewMode}
+            onDocumentSelect={setPreviewDocument}
+            onShowMessage={showMessage}
+            onTagClick={selectTag}
+          />
         </section>
       </main>
 
-      <SourceChooserModal fileInput={fileInput} open={sourceChooserOpen} onClose={() => setSourceChooserOpen(false)} onOpenWebPending={openWebPending} />
+      <PreviewSidebar
+        document={previewDocument}
+        onClose={() => setPreviewDocument(null)}
+        onResizeStart={startPreviewResize}
+      />
+
+      <SourceChooserModal
+        fileInput={fileInput}
+        open={sourceChooserOpen}
+        onClose={() => setSourceChooserOpen(false)}
+        onOpenWebPending={openWebPending}
+      />
       <SettingsModal
         open={settingsOpen}
         storage={storage}

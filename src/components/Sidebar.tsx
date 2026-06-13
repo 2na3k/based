@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronsLeft, ChevronsRight, File, FileSpreadsheet, FileText, Hash, Moon, Settings, Sun } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, File, FileSpreadsheet, FileText, Moon, Settings, Sun } from "lucide-react";
 import { FILTER_TYPES, TYPE_LABELS } from "../lib/documents";
 import type { DocumentType, KnowledgeDocument } from "../lib/types";
 
@@ -94,7 +94,7 @@ export function Sidebar({
               className={`nav-item nav-child${activeFilterGroup === "tags" && activeTag === "all" ? " active" : ""}`}
               onClick={() => onActiveTagChange("all")}
             >
-              <Hash size={14} />
+              <span className="tag-hash">#</span>
               <span className="nav-label">All tags</span>
               <span className="nav-count">{tags.length}</span>
             </button>

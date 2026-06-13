@@ -6,12 +6,23 @@ interface DocumentGridProps {
   documents: KnowledgeDocument[];
   error: string | null;
   loading: boolean;
+  selectedDocumentId: number | null;
   viewMode: ViewMode;
+  onDocumentSelect: (doc: KnowledgeDocument) => void;
   onShowMessage: (message: string) => void;
   onTagClick: (tag: string) => void;
 }
 
-export function DocumentGrid({ documents, error, loading, viewMode, onShowMessage, onTagClick }: DocumentGridProps) {
+export function DocumentGrid({
+  documents,
+  error,
+  loading,
+  selectedDocumentId,
+  viewMode,
+  onDocumentSelect,
+  onShowMessage,
+  onTagClick,
+}: DocumentGridProps) {
   return (
     <>
       {loading ? (
@@ -32,7 +43,14 @@ export function DocumentGrid({ documents, error, loading, viewMode, onShowMessag
       ) : null}
       <div className={`doc-grid ${viewMode}`}>
         {documents.map((doc) => (
-          <DocumentCard key={doc.id} doc={doc} onShowMessage={onShowMessage} onTagClick={onTagClick} />
+          <DocumentCard
+            key={doc.id}
+            doc={doc}
+            selected={selectedDocumentId === doc.id}
+            onSelect={onDocumentSelect}
+            onShowMessage={onShowMessage}
+            onTagClick={onTagClick}
+          />
         ))}
       </div>
     </>
