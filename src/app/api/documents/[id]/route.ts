@@ -1,7 +1,8 @@
 import { readFile, unlink, writeFile } from "node:fs/promises";
+import { basename } from "node:path";
 import { NextResponse } from "next/server";
 import { mergeNoteMarkdown, parseNoteMarkdown } from "../../../../lib/documents";
-import { prisma, rowToDocument, tagsFromUnknown } from "../../_lib/storage";
+import { prisma, renameNotePath, rowToDocument, tagsFromUnknown } from "../../_lib/storage";
 
 export const runtime = "nodejs";
 
@@ -41,6 +42,8 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const tags = tagsFromUnknown(input.tags);
+  let noteStoredPath = existing.storedPath;
+  let noteFileName = existing.originalName;
   if (existing.type === "note") {
     const markdown = await readFile(existing.storedPath, "utf8").catch(() => "");
     const parsed = parseNoteMarkdown(markdown);
@@ -52,6 +55,8 @@ export async function PATCH(request: Request, context: RouteContext) {
         tags,
       }),
     );
+    noteStoredPath = await renameNotePath(existing.storedPath, input.title.trim());
+    noteFileName = basename(noteStoredPath);
   }
 
   const row = await client.document.update({
@@ -59,6 +64,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     data: {
       title: input.title.trim(),
       tags: JSON.stringify(tags),
+      ...(existing.type === "note"
+        ? {
+            source: noteFileName,
+            originalName: noteFileName,
+            storedPath: noteStoredPath,
+          }
+        : {}),
     },
   });
 

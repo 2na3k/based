@@ -165,7 +165,7 @@ export function parseNoteMarkdown(markdown: string): { metadata: NoteMetadata; b
 
 export function mergeNoteMarkdown(markdown: string, metadata: NoteMetadata): string {
   const parsed = parseNoteMarkdown(markdown);
-  return `${serializeNoteFrontmatter(metadata)}${parsed.body.replace(/^\n+/, "")}`;
+  return `${serializeNoteFrontmatter(metadata)}${parsed.body}`;
 }
 
 export function wikiLinkTargets(markdown: string): string[] {

@@ -1,4 +1,5 @@
 import { stat, writeFile } from "node:fs/promises";
+import { basename } from "node:path";
 import { NextResponse } from "next/server";
 import { defaultNoteMetadata, serializeNoteFrontmatter } from "../../../lib/documents";
 import { prisma, rowToDocument, storedNotePath, tagsFromUnknown } from "../_lib/storage";
@@ -14,7 +15,8 @@ export async function POST(request: Request) {
   const created = new Date().toISOString();
   const metadata = defaultNoteMetadata({ name: title, description, tags, created });
   const markdown = serializeNoteFrontmatter(metadata);
-  const storedPath = storedNotePath(title);
+  const storedPath = await storedNotePath(title);
+  const fileName = basename(storedPath);
 
   await writeFile(storedPath, markdown);
   const fileStat = await stat(storedPath);
@@ -23,10 +25,10 @@ export async function POST(request: Request) {
     data: {
       type: "note",
       title,
-      source: `${title}.md`,
+      source: fileName,
       tags: JSON.stringify(tags),
       createdAt: created,
-      originalName: `${title}.md`,
+      originalName: fileName,
       storedPath,
       size: fileStat.size,
       pinned: 0,

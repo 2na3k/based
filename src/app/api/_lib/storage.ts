@@ -1,5 +1,5 @@
-import { access, mkdir, writeFile } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
+import { access, mkdir, rename, writeFile } from "node:fs/promises";
+import { basename, dirname, extname, join } from "node:path";
 import { homedir } from "node:os";
 import { PrismaClient, type Document } from "@prisma/client";
 import { slugifyNoteTitle } from "../../../lib/documents";
@@ -108,8 +108,38 @@ export function storedDocumentPath(type: DocumentType, fileName: string) {
   return join(DOCUMENTS_DIR, type, storedName);
 }
 
-export function storedNotePath(title: string) {
-  return join(NOTES_DIR, `${Date.now()}-${slugifyNoteTitle(title)}.md`);
+export function noteFileName(title: string) {
+  return `${slugifyNoteTitle(title)}.md`;
+}
+
+async function pathExists(path: string) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function storedNotePath(title: string, currentPath = "") {
+  const slug = slugifyNoteTitle(title);
+  const currentDir = currentPath ? dirname(currentPath) : "";
+  const currentBase = currentPath ? basename(currentPath) : "";
+  for (let index = 1; index < 1000; index += 1) {
+    const fileName = index === 1 ? `${slug}.md` : `${slug}-${index}.md`;
+    const candidate = join(NOTES_DIR, fileName);
+    if (currentDir === NOTES_DIR && currentBase === fileName) return candidate;
+    if (!(await pathExists(candidate))) return candidate;
+  }
+  return join(NOTES_DIR, `${slug}-${Date.now()}.md`);
+}
+
+export async function renameNotePath(currentPath: string, title: string) {
+  const nextPath = await storedNotePath(title, currentPath);
+  if (nextPath !== currentPath) {
+    await rename(currentPath, nextPath);
+  }
+  return nextPath;
 }
 
 export function storedImagePath(fileName: string, mimeType: string) {

@@ -1,7 +1,8 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
+import { basename } from "node:path";
 import { NextResponse } from "next/server";
 import { defaultNoteMetadata, mergeNoteMarkdown, parseNoteMarkdown } from "../../../../lib/documents";
-import { prisma, rowToDocument, tagsFromUnknown } from "../../_lib/storage";
+import { prisma, renameNotePath, rowToDocument, tagsFromUnknown } from "../../_lib/storage";
 import type { KnowledgeDocument, NoteMetadata } from "../../../../lib/types";
 
 export const runtime = "nodejs";
@@ -67,14 +68,19 @@ export async function PUT(request: Request, context: RouteContext) {
   const metadata = metadataFromInput(input.metadata, parsed.metadata);
   const markdown = mergeNoteMarkdown(input.markdown, metadata);
   await writeFile(document.storedPath, markdown);
-  const fileStat = await stat(document.storedPath);
+  const storedPath = await renameNotePath(document.storedPath, metadata.name);
+  const fileName = basename(storedPath);
+  const fileStat = await stat(storedPath);
 
   const client = await prisma();
   const row = await client.document.update({
     where: { id: document.id },
     data: {
       title: metadata.name,
+      source: fileName,
       tags: JSON.stringify(metadata.tags),
+      originalName: fileName,
+      storedPath,
       size: fileStat.size,
     },
   });

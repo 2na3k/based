@@ -2,7 +2,7 @@
 
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDocument, addWebDocument, createNote, deleteDocument, fetchBacklinks, fetchConfig, fetchNote, saveNote, updateDocument, uploadNoteImage } from "../lib/api";
+import { addDocument, addWebDocument, createNote, deleteDocument, fetchConfig, fetchNote, saveNote, updateDocument, uploadNoteImage } from "../lib/api";
 import {
   inferType,
   parseNoteMarkdown,
@@ -15,7 +15,6 @@ import {
 import type {
   AppConfig,
   DocumentType,
-  DocumentBacklink,
   KnowledgeDocument,
   NoteMetadata,
   PendingSource,
@@ -91,8 +90,6 @@ export function BasedApp() {
   const [noteMetadata, setNoteMetadata] = useState<NoteMetadata | null>(null);
   const [noteLoading, setNoteLoading] = useState(false);
   const [noteSaveState, setNoteSaveState] = useState<SaveState>("idle");
-  const [backlinks, setBacklinks] = useState<DocumentBacklink[]>([]);
-  const [backlinksLoading, setBacklinksLoading] = useState(false);
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
   const [sidebarToggleY, setSidebarToggleY] = useState(18);
   const [actionsDocument, setActionsDocument] = useState<KnowledgeDocument | null>(null);
@@ -109,6 +106,11 @@ export function BasedApp() {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const lastAutoTitle = useRef("");
   const lastSavedNote = useRef("");
+  const currentNoteMarkdown = useRef("");
+  const currentNoteMetadata = useRef<NoteMetadata | null>(null);
+  const currentNoteDocumentId = useRef<number | null>(null);
+  const noteRevision = useRef(0);
+  const noteSaving = useRef(false);
 
   useEffect(() => {
     fetchConfig()
@@ -127,6 +129,14 @@ export function BasedApp() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    currentNoteMetadata.current = noteMetadata;
+  }, [noteMetadata]);
+
+  useEffect(() => {
+    currentNoteDocumentId.current = noteDocument?.id ?? null;
+  }, [noteDocument]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -198,15 +208,6 @@ export function BasedApp() {
     return () => window.clearTimeout(timer);
   }, [noteDocument, noteMarkdown, noteMetadata, noteSaveState]);
 
-  useEffect(() => {
-    if (!noteDocument) return;
-    setBacklinksLoading(true);
-    fetchBacklinks(noteDocument.id)
-      .then(setBacklinks)
-      .catch(() => setBacklinks([]))
-      .finally(() => setBacklinksLoading(false));
-  }, [noteDocument]);
-
   const filtered = useMemo(() => {
     const query = searchQ.trim().toLowerCase();
     const result = documents.filter((doc) => {
@@ -260,6 +261,8 @@ export function BasedApp() {
     try {
       const content = await fetchNote(doc.id);
       setNoteDocument(content.document);
+      noteRevision.current = 0;
+      currentNoteMarkdown.current = content.markdown;
       setNoteMarkdown(content.markdown);
       setNoteMetadata(content.metadata);
       lastSavedNote.current = content.markdown;
@@ -278,8 +281,22 @@ export function BasedApp() {
       return;
     }
     setNoteDocument(null);
+    noteRevision.current = 0;
+    currentNoteMarkdown.current = "";
     setNoteMarkdown("");
     setNoteMetadata(null);
+    setPreviewDocument(doc);
+  }
+
+  function openRenderedReference(doc: KnowledgeDocument) {
+    if (doc.type === "web") {
+      window.open(doc.source, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (doc.type === "note") {
+      void openNote(doc);
+      return;
+    }
     setPreviewDocument(doc);
   }
 
@@ -301,6 +318,8 @@ export function BasedApp() {
       });
       setDocuments((current) => [content.document, ...current]);
       setNoteDocument(content.document);
+      noteRevision.current = 0;
+      currentNoteMarkdown.current = content.markdown;
       setNoteMarkdown(content.markdown);
       setNoteMetadata(content.metadata);
       lastSavedNote.current = content.markdown;
@@ -319,25 +338,40 @@ export function BasedApp() {
   }
 
   async function saveActiveNote() {
-    if (!noteDocument || !noteMetadata || noteSaveState === "saving") return;
+    const documentId = currentNoteDocumentId.current;
+    const metadataToSave = currentNoteMetadata.current;
+    if (!documentId || !metadataToSave || noteSaving.current) return;
+    const markdownToSave = currentNoteMarkdown.current;
+    const revisionToSave = noteRevision.current;
+    noteSaving.current = true;
     setNoteSaveState("saving");
     try {
-      const content = await saveNote(noteDocument.id, {
-        markdown: noteMarkdown,
-        metadata: noteMetadata,
+      const content = await saveNote(documentId, {
+        markdown: markdownToSave,
+        metadata: metadataToSave,
       });
+      if (currentNoteDocumentId.current !== documentId) return;
       updateDocumentState(content.document);
-      setNoteMarkdown(content.markdown);
-      setNoteMetadata(content.metadata);
-      lastSavedNote.current = content.markdown;
-      setNoteSaveState("saved");
+      if (noteRevision.current === revisionToSave && currentNoteMarkdown.current === markdownToSave) {
+        currentNoteMarkdown.current = content.markdown;
+        setNoteMarkdown(content.markdown);
+        setNoteMetadata(content.metadata);
+        lastSavedNote.current = content.markdown;
+        setNoteSaveState("saved");
+      } else {
+        setNoteSaveState("dirty");
+      }
     } catch (caught: unknown) {
       setNoteSaveState("error");
       showMessage(caught instanceof Error ? caught.message : "Could not save note");
+    } finally {
+      noteSaving.current = false;
     }
   }
 
   function changeNoteMarkdown(markdown: string) {
+    noteRevision.current += 1;
+    currentNoteMarkdown.current = markdown;
     setNoteMarkdown(markdown);
     setNoteSaveState(markdown === lastSavedNote.current ? "saved" : "dirty");
   }
@@ -346,8 +380,9 @@ export function BasedApp() {
     if (!noteDocument || !noteMetadata) return;
     const metadata = { ...noteMetadata, name: title };
     const parsed = parseNoteMarkdown(noteMarkdown);
-    const markdown = `${serializeNoteFrontmatter(metadata)}${parsed.body.replace(/^\n+/, "")}`;
+    const markdown = `${serializeNoteFrontmatter(metadata)}${parsed.body}`;
     setNoteDocument({ ...noteDocument, title });
+    currentNoteMarkdown.current = markdown;
     setNoteMetadata(metadata);
     changeNoteMarkdown(markdown);
   }
@@ -572,8 +607,6 @@ export function BasedApp() {
         <section className="content">
           {noteDocument ? (
             <NoteEditor
-              backlinks={backlinks}
-              backlinksLoading={backlinksLoading}
               documents={documents}
               loading={noteLoading}
               markdown={noteMarkdown}
@@ -582,6 +615,7 @@ export function BasedApp() {
               title={noteDocument.title}
               onMarkdownChange={changeNoteMarkdown}
               onPasteImage={pasteNoteImage}
+              onReferenceOpen={openRenderedReference}
               onSave={() => void saveActiveNote()}
               onTitleChange={renameNote}
             />

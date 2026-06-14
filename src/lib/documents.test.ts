@@ -51,6 +51,13 @@ describe("note markdown helpers", () => {
     expect(parseNoteMarkdown(next).body).toBe("Body");
   });
 
+  test("preserves leading blank lines when merging note metadata", () => {
+    const markdown = `${serializeNoteFrontmatter(defaultNoteMetadata({ name: "Old" }))}\nBody`;
+    const next = mergeNoteMarkdown(markdown, defaultNoteMetadata({ name: "New" }));
+
+    expect(parseNoteMarkdown(next).body).toBe("\nBody");
+  });
+
   test("parses wiki links and matching excerpts", () => {
     const markdown = "Use [[Source One]] here.\nIgnore [[Other]].\nAgain [[Source One|label]].";
 

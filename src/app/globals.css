@@ -278,9 +278,18 @@ a.preview-empty:hover { color: var(--tx); background: var(--hover); }
 .note-save-state { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; color: var(--tx3); font-family: var(--mono); font-size: 10px; white-space: nowrap; }
 .note-save-state.dirty { color: var(--tx2); }
 .note-save-state.error { color: #b42318; }
-.note-editor-grid { flex: 1; min-height: 460px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+.note-render-toggle.active { color: var(--tx); background: var(--hover); }
+.note-editor-grid { position: relative; flex: 1; min-height: 460px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+.note-editor-grid.render-off { grid-template-columns: minmax(0, 1fr); }
 .note-markdown-input { width: 100%; min-height: 100%; padding: 22px; resize: none; border: 0; border-right: 1px solid var(--border); border-radius: var(--r) 0 0 var(--r); background: var(--surface); color: var(--tx); font-family: var(--mono); font-size: 13px; line-height: 1.65; outline: none; box-shadow: none; appearance: none; }
+.note-editor-grid.render-off .note-markdown-input { border-right: 0; border-radius: var(--r); }
 .note-markdown-input:focus { outline: none; box-shadow: none; }
+.backlink-suggestions { position: absolute; left: max(18px, calc(50% - 244px)); top: 12px; z-index: 3; width: 220px; max-height: 132px; overflow: auto; display: grid; gap: 1px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08); }
+.note-editor-grid.render-off .backlink-suggestions { left: auto; right: 12px; }
+.backlink-suggestion-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 6px; border-radius: 7px; color: var(--tx2); text-align: left; }
+.backlink-suggestion-row.active { background: var(--hover); color: var(--tx); }
+.backlink-suggestions span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.backlink-suggestions small { color: var(--tx3); font-family: var(--mono); font-size: 9px; }
 .note-rendered-wrap { position: relative; min-width: 0; min-height: 0; border-radius: 0 var(--r) var(--r) 0; overflow: hidden; }
 .note-rendered { height: 100%; overflow: auto; padding: 24px 28px 42px; color: var(--tx); font-size: 15px; line-height: 1.72; overflow-wrap: anywhere; }
 .note-rendered > * + * { margin-top: 14px; }
@@ -304,14 +313,17 @@ a.preview-empty:hover { color: var(--tx); background: var(--hover); }
 [data-theme="dark"] .code-token.keyword { color: #84adff; }
 [data-theme="dark"] .code-token.string { color: #75e0a7; }
 [data-theme="dark"] .code-token.number { color: #f97066; }
-.wiki-link { color: var(--tx); background: var(--selected); border-radius: 4px; padding: 1px 4px; }
-.note-footnote { color: var(--tx2); font-size: 13px; border-top: 1px solid var(--border); padding-top: 10px; }
-.note-backlinks { position: absolute; right: 12px; bottom: 12px; width: min(240px, calc(100% - 24px)); max-height: 180px; overflow: auto; display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: var(--r); background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.08); }
-.note-section-head { display: flex; align-items: center; justify-content: space-between; color: var(--tx2); font-family: var(--mono); font-size: 11px; }
-.note-muted { color: var(--tx3); font-size: 12px; }
-.backlink-item { display: grid; gap: 3px; padding: 6px; border-radius: 7px; background: var(--hover); }
-.backlink-title { color: var(--tx); font-size: 13px; font-weight: 600; }
-.backlink-item p { color: var(--tx2); font-size: 11px; line-height: 1.4; }
+.wiki-link { display: inline; padding: 0; border-radius: 0; color: var(--tx); background: transparent; text-decoration: underline; text-decoration-color: var(--tx3); text-underline-offset: 3px; cursor: pointer; }
+.wiki-link:hover { color: var(--tx2); background: transparent; text-decoration-color: var(--tx); }
+.note-citations { display: grid; gap: 8px; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); }
+.note-citations-title { color: var(--tx3); font-family: var(--mono); font-size: 11px; }
+.note-citation { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; background: var(--hover); color: var(--tx2); text-align: left; }
+.note-citation:hover { background: var(--selected); color: var(--tx); }
+.note-citation-index { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 999px; background: var(--surface); color: var(--tx3); font-family: var(--mono); font-size: 10px; }
+.note-citation-main { display: grid; gap: 2px; min-width: 0; }
+.note-citation-main strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx); font-size: 13px; font-weight: 650; }
+.note-citation-main small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx3); font-size: 12px; }
+.note-citation-type { color: var(--tx2); font-family: var(--mono); font-size: 11px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 760px) {
@@ -324,8 +336,8 @@ a.preview-empty:hover { color: var(--tx); background: var(--hover); }
   .custom-filter-group, .note-editor-grid { grid-template-columns: 1fr; }
   .note-save-state { margin-left: 0; }
   .note-markdown-input { min-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); border-radius: var(--r) var(--r) 0 0; }
+  .backlink-suggestions { left: auto; right: 12px; width: min(220px, calc(100% - 24px)); }
   .note-rendered-wrap { min-height: 260px; border-radius: 0 0 var(--r) var(--r); }
-  .note-backlinks { width: min(220px, calc(100% - 20px)); right: 10px; bottom: 10px; }
   .doc-grid.list .doc-card { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
   .doc-grid.list .type-badge { grid-column: 2; }
   .doc-grid.list .card-menu { grid-column: 2; grid-row: 2; }

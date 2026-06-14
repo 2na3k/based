@@ -9,3 +9,7 @@
 ## Typescript rule
 
 - Strictly no use for `any` types.
+
+## Testing rule
+
+- ALWAYS using Playwright MCP to test for the feature on browser before return the result to user. If you saw user already open a port to test then just use that.
