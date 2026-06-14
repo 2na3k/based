@@ -1,4 +1,4 @@
-import { type ClipboardEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { parseNoteMarkdown, serializeNoteFrontmatter, wikiLinkTargets } from "../lib/documents";
 import type { KnowledgeDocument, NoteMetadata, SaveState } from "../lib/types";
 
@@ -17,12 +17,17 @@ interface NoteEditorProps {
 }
 
 interface BacklinkMatch {
+  exact: boolean;
   query: string;
   start: number;
 }
 
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderEditorHighlights(value: string) {
+  return escapeHtml(value).replace(/\[\[([^\]]+)\]\]/g, (_match: string, inner: string) => `[[<span class="editor-wiki-link">${inner}</span>]]`);
 }
 
 function findDocumentForHref(href: string, documents: KnowledgeDocument[]) {
@@ -177,9 +182,14 @@ function backlinkMatch(value: string, cursor: number): BacklinkMatch | null {
   if (openIndex === -1) return null;
   const closeIndex = beforeCursor.lastIndexOf("]]");
   if (closeIndex > openIndex) return null;
+  const lineEnd = value.indexOf("\n", cursor);
+  const afterCursor = value.slice(cursor, lineEnd === -1 ? value.length : lineEnd);
   const query = beforeCursor.slice(openIndex + 2);
   if (query.includes("\n") || query.includes("[")) return null;
-  return { query, start: openIndex };
+  const closeAfterCursor = afterCursor.indexOf("]]");
+  const exact = closeAfterCursor !== -1;
+  const completedQuery = exact ? `${query}${afterCursor.slice(0, closeAfterCursor)}` : query;
+  return { exact, query: completedQuery, start: openIndex };
 }
 
 function completedBacklinkAtCursor(value: string, cursor: number): string | null {
@@ -211,6 +221,7 @@ export function NoteEditor({
 }: NoteEditorProps) {
   const textRef = useRef<HTMLTextAreaElement | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
+  const highlightRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef("");
   const historyRef = useRef<string[]>([""]);
   const historyIndexRef = useRef(0);
@@ -221,9 +232,11 @@ export function NoteEditor({
   const [activeSuggestion, setActiveSuggestion] = useState(0);
   const rendered = useMemo(() => renderMarkdown(markdown, documents), [documents, markdown]);
   const body = useMemo(() => parseNoteMarkdown(markdown).body, [markdown]);
+  const editorHighlights = useMemo(() => renderEditorHighlights(body), [body]);
   const backlinkSuggestions = useMemo(() => {
     if (!backlinkQuery) return [];
     const query = backlinkQuery.query.trim().toLowerCase();
+    if (backlinkQuery.exact && documents.some((doc) => doc.title.toLowerCase() === query)) return [];
     return documents
       .filter((doc) => doc.title !== title)
       .filter((doc) => !query || doc.title.toLowerCase().includes(query) || doc.tags.some((tag) => tag.toLowerCase().includes(query)))
@@ -285,13 +298,30 @@ export function NoteEditor({
     setBacklinkQuery(backlinkMatch(bodyRef.current, input.selectionStart));
   }
 
-  function openCompletedBacklink() {
+  function syncHighlightScroll() {
+    const input = textRef.current;
+    const highlight = highlightRef.current;
+    if (!input || !highlight) return;
+    highlight.style.setProperty("--editor-scroll-x", `${input.scrollLeft}px`);
+    highlight.style.setProperty("--editor-scroll-y", `${input.scrollTop}px`);
+  }
+
+  function openCompletedBacklink(event?: MouseEvent<HTMLTextAreaElement>) {
+    event?.preventDefault();
     const input = textRef.current;
     if (!input) return;
     const target = completedBacklinkAtCursor(bodyRef.current, input.selectionStart);
     if (!target) return;
     const document = documents.find((doc) => doc.title.toLowerCase() === target.toLowerCase());
     if (document) onReferenceOpen(document);
+    window.requestAnimationFrame(() => {
+      const current = textRef.current;
+      if (!current) return;
+      const cursor = current.selectionEnd;
+      current.selectionStart = cursor;
+      current.selectionEnd = cursor;
+      current.focus();
+    });
   }
 
   async function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
@@ -474,23 +504,34 @@ export function NoteEditor({
         </div>
       </div>
       <div className={`note-editor-grid${renderEnabled ? "" : " render-off"}`}>
-        <textarea
-          ref={textRef}
-          className="note-markdown-input"
-          spellCheck
-          value={body}
-          onChange={(event) => {
-            applyBody(event.target.value, event.target.selectionStart, event.target.selectionEnd);
-          }}
-          onClick={updateBacklinkQuery}
-          onDoubleClick={openCompletedBacklink}
-          onKeyDown={handleEditorKeyDown}
-          onKeyUp={(event) => {
-            if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter" || event.key === "Escape") return;
-            updateBacklinkQuery();
-          }}
-          onPaste={(event) => void handlePaste(event)}
-        />
+        <div className="note-input-wrap">
+          <div
+            ref={highlightRef}
+            className="note-markdown-highlight"
+            aria-hidden="true"
+            style={{ "--editor-scroll-x": "0px", "--editor-scroll-y": "0px" } as CSSProperties}
+          >
+            <pre dangerouslySetInnerHTML={{ __html: editorHighlights || "\n" }} />
+          </div>
+          <textarea
+            ref={textRef}
+            className="note-markdown-input"
+            spellCheck
+            value={body}
+            onChange={(event) => {
+              applyBody(event.target.value, event.target.selectionStart, event.target.selectionEnd);
+            }}
+            onClick={updateBacklinkQuery}
+            onDoubleClick={openCompletedBacklink}
+            onKeyDown={handleEditorKeyDown}
+            onKeyUp={(event) => {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter" || event.key === "Escape") return;
+              updateBacklinkQuery();
+            }}
+            onPaste={(event) => void handlePaste(event)}
+            onScroll={syncHighlightScroll}
+          />
+        </div>
         {backlinkQuery && backlinkSuggestions.length ? (
           <div className="backlink-suggestions">
             {backlinkSuggestions.map((document, index) => (
