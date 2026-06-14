@@ -30,6 +30,12 @@ interface SuggestionPosition {
   top: number;
 }
 
+interface CaretMetrics {
+  lineHeight: number;
+  left: number;
+  top: number;
+}
+
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -316,23 +322,19 @@ export function NoteEditor({
       input.selectionStart = selectionStart;
       input.selectionEnd = selectionEnd;
       input.focus();
+      ensureCaretVisible(input, selectionStart);
+      syncHighlightScroll();
       setBacklinkQuery(backlinkMatch(nextBody, selectionStart));
       setSuggestionPosition(caretPosition(input, selectionStart));
     });
   }
 
-  function caretPosition(input: HTMLTextAreaElement, cursor: number): SuggestionPosition {
-    const wrap = input.closest<HTMLElement>(".note-input-wrap");
+  function caretMetrics(input: HTMLTextAreaElement, cursor: number): CaretMetrics {
     const inputRect = input.getBoundingClientRect();
-    const wrapRect = wrap?.getBoundingClientRect() ?? inputRect;
     const computed = window.getComputedStyle(input);
     const mirror = document.createElement("div");
     const marker = document.createElement("span");
     const lineHeight = Number.parseFloat(computed.lineHeight) || 22;
-    const paddingLeft = Number.parseFloat(computed.paddingLeft) || 0;
-    const paddingTop = Number.parseFloat(computed.paddingTop) || 0;
-    const maxLeft = Math.max(paddingLeft, input.clientWidth - 232);
-    const maxTop = Math.max(paddingTop, input.clientHeight - 148);
 
     mirror.style.position = "fixed";
     mirror.style.left = `${inputRect.left}px`;
@@ -357,8 +359,53 @@ export function NoteEditor({
     const markerRect = marker.getBoundingClientRect();
     mirror.remove();
 
-    const rawLeft = markerRect.left - wrapRect.left - input.scrollLeft;
-    const rawTop = markerRect.top - wrapRect.top - input.scrollTop;
+    return {
+      lineHeight,
+      left: markerRect.left - inputRect.left,
+      top: markerRect.top - inputRect.top,
+    };
+  }
+
+  function ensureCaretVisible(input: HTMLTextAreaElement, cursor: number) {
+    const metrics = caretMetrics(input, cursor);
+    const inputRect = input.getBoundingClientRect();
+    const scrollRoot = input.closest<HTMLElement>(".content");
+    const rootRect = scrollRoot?.getBoundingClientRect();
+    const topPadding = 22;
+    const bottomPadding = 44;
+    const visibleTop = metrics.top - input.scrollTop;
+    const visibleBottom = visibleTop + metrics.lineHeight;
+
+    if (visibleBottom > input.clientHeight - bottomPadding) {
+      input.scrollTop = Math.min(input.scrollHeight, metrics.top - input.clientHeight + metrics.lineHeight + bottomPadding);
+    } else if (visibleTop < topPadding) {
+      input.scrollTop = Math.max(0, metrics.top - topPadding);
+    }
+
+    if (!scrollRoot || !rootRect) return;
+
+    const caretViewportTop = inputRect.top + metrics.top - input.scrollTop;
+    const caretViewportBottom = caretViewportTop + metrics.lineHeight;
+    const rootTopPadding = 24;
+    const rootBottomPadding = 72;
+
+    if (caretViewportBottom > rootRect.bottom - rootBottomPadding) {
+      scrollRoot.scrollTop += caretViewportBottom - rootRect.bottom + rootBottomPadding;
+    } else if (caretViewportTop < rootRect.top + rootTopPadding) {
+      scrollRoot.scrollTop -= rootRect.top + rootTopPadding - caretViewportTop;
+    }
+  }
+
+  function caretPosition(input: HTMLTextAreaElement, cursor: number): SuggestionPosition {
+    const computed = window.getComputedStyle(input);
+    const metrics = caretMetrics(input, cursor);
+    const lineHeight = metrics.lineHeight;
+    const paddingLeft = Number.parseFloat(computed.paddingLeft) || 0;
+    const paddingTop = Number.parseFloat(computed.paddingTop) || 0;
+    const maxLeft = Math.max(paddingLeft, input.clientWidth - 232);
+    const maxTop = Math.max(paddingTop, input.clientHeight - 148);
+    const rawLeft = metrics.left - input.scrollLeft;
+    const rawTop = metrics.top - input.scrollTop;
     const fitsBelow = rawTop + lineHeight + 144 <= input.clientHeight;
     const top = fitsBelow ? rawTop + lineHeight + 6 : rawTop - 144;
 
