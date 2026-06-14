@@ -3,10 +3,15 @@ import { formatDate, TYPE_LABELS } from "../lib/documents";
 import type { KnowledgeDocument } from "../lib/types";
 import { PdfCanvas } from "./PdfCanvas";
 
+export interface ActionsMenuPosition {
+  left: number;
+  top: number;
+}
+
 interface DocumentCardProps {
   doc: KnowledgeDocument;
   selected: boolean;
-  onActions: (doc: KnowledgeDocument) => void;
+  onActions: (doc: KnowledgeDocument, position: ActionsMenuPosition) => void;
   onSelect: (doc: KnowledgeDocument) => void;
   onTagClick: (tag: string) => void;
 }
@@ -64,7 +69,11 @@ export function DocumentCard({ doc, selected, onActions, onSelect, onTagClick }:
           title="Source actions"
           onClick={(event) => {
             event.stopPropagation();
-            onActions(doc);
+            const rect = event.currentTarget.getBoundingClientRect();
+            onActions(doc, {
+              left: Math.min(rect.left, window.innerWidth - 180),
+              top: rect.bottom + 6,
+            });
           }}
         >
           <MoreVertical size={14} />

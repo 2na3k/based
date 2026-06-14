@@ -2,6 +2,8 @@ export type DocumentType = "pdf" | "doc" | "xlsx" | "web" | "paper" | "note";
 export type ViewMode = "list" | "card";
 export type SortMode = "recent" | "alpha" | "type";
 export type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+export type OpenApp = "system" | "vscode" | "zed" | "obsidian";
+export type OpenAppConfig = Record<DocumentType, OpenApp>;
 
 export interface KnowledgeDocument {
   id: number;
@@ -29,6 +31,7 @@ export interface StorageInfo {
 export interface AppConfig {
   storage: StorageInfo;
   documents: KnowledgeDocument[];
+  openApps: OpenAppConfig;
 }
 
 export interface PendingFileSource {

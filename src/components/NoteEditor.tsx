@@ -1,4 +1,5 @@
 import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ExternalLink } from "lucide-react";
 import { parseNoteMarkdown, serializeNoteFrontmatter, wikiLinkTargets } from "../lib/documents";
 import type { KnowledgeDocument, NoteMetadata, SaveState } from "../lib/types";
 import { LinkPreviewBubble, type PreviewTarget } from "./LinkPreviewBubble";
@@ -11,6 +12,7 @@ interface NoteEditorProps {
   saveState: SaveState;
   title: string;
   onMarkdownChange: (markdown: string) => void;
+  onOpenExternal: () => void;
   onPasteImage: (file: File) => Promise<string>;
   onReferenceOpen: (document: KnowledgeDocument) => void;
   onSave: () => void;
@@ -21,6 +23,11 @@ interface BacklinkMatch {
   exact: boolean;
   query: string;
   start: number;
+}
+
+interface SuggestionPosition {
+  left: number;
+  top: number;
 }
 
 function escapeHtml(value: string) {
@@ -215,6 +222,7 @@ export function NoteEditor({
   saveState,
   title,
   onMarkdownChange,
+  onOpenExternal,
   onPasteImage,
   onReferenceOpen,
   onSave,
@@ -232,6 +240,7 @@ export function NoteEditor({
   const [renderEnabled, setRenderEnabled] = useState(true);
   const [backlinkQuery, setBacklinkQuery] = useState<BacklinkMatch | null>(null);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [suggestionPosition, setSuggestionPosition] = useState<SuggestionPosition>({ left: 22, top: 48 });
   const [linkPreview, setLinkPreview] = useState<{ target: PreviewTarget; x: number; y: number } | null>(null);
   const rendered = useMemo(() => renderMarkdown(markdown, documents), [documents, markdown]);
   const body = useMemo(() => parseNoteMarkdown(markdown).body, [markdown]);
@@ -308,13 +317,62 @@ export function NoteEditor({
       input.selectionEnd = selectionEnd;
       input.focus();
       setBacklinkQuery(backlinkMatch(nextBody, selectionStart));
+      setSuggestionPosition(caretPosition(input, selectionStart));
     });
+  }
+
+  function caretPosition(input: HTMLTextAreaElement, cursor: number): SuggestionPosition {
+    const wrap = input.closest<HTMLElement>(".note-input-wrap");
+    const inputRect = input.getBoundingClientRect();
+    const wrapRect = wrap?.getBoundingClientRect() ?? inputRect;
+    const computed = window.getComputedStyle(input);
+    const mirror = document.createElement("div");
+    const marker = document.createElement("span");
+    const lineHeight = Number.parseFloat(computed.lineHeight) || 22;
+    const paddingLeft = Number.parseFloat(computed.paddingLeft) || 0;
+    const paddingTop = Number.parseFloat(computed.paddingTop) || 0;
+    const maxLeft = Math.max(paddingLeft, input.clientWidth - 232);
+    const maxTop = Math.max(paddingTop, input.clientHeight - 148);
+
+    mirror.style.position = "fixed";
+    mirror.style.left = `${inputRect.left}px`;
+    mirror.style.top = `${inputRect.top}px`;
+    mirror.style.width = `${input.clientWidth}px`;
+    mirror.style.height = `${input.clientHeight}px`;
+    mirror.style.padding = computed.padding;
+    mirror.style.border = computed.border;
+    mirror.style.boxSizing = computed.boxSizing;
+    mirror.style.font = computed.font;
+    mirror.style.letterSpacing = computed.letterSpacing;
+    mirror.style.lineHeight = computed.lineHeight;
+    mirror.style.whiteSpace = "pre-wrap";
+    mirror.style.overflowWrap = "break-word";
+    mirror.style.visibility = "hidden";
+    mirror.style.pointerEvents = "none";
+    mirror.textContent = input.value.slice(0, cursor);
+    marker.textContent = "\u200b";
+    mirror.append(marker);
+    document.body.append(mirror);
+
+    const markerRect = marker.getBoundingClientRect();
+    mirror.remove();
+
+    const rawLeft = markerRect.left - wrapRect.left - input.scrollLeft;
+    const rawTop = markerRect.top - wrapRect.top - input.scrollTop;
+    const fitsBelow = rawTop + lineHeight + 144 <= input.clientHeight;
+    const top = fitsBelow ? rawTop + lineHeight + 6 : rawTop - 144;
+
+    return {
+      left: Math.min(maxLeft, Math.max(paddingLeft, rawLeft)),
+      top: Math.min(maxTop, Math.max(paddingTop, top)),
+    };
   }
 
   function updateBacklinkQuery() {
     const input = textRef.current;
     if (!input) return;
     setBacklinkQuery(backlinkMatch(bodyRef.current, input.selectionStart));
+    setSuggestionPosition(caretPosition(input, input.selectionStart));
   }
 
   function syncHighlightScroll() {
@@ -598,6 +656,9 @@ export function NoteEditor({
           )}
         </div>
         <div className={`note-save-state ${saveState}`}>
+          <button className="icon-btn" title="Open in another app" aria-label="Open note in another app" onClick={onOpenExternal}>
+            <ExternalLink size={14} />
+          </button>
           <button className={`btn-ghost note-render-toggle${renderEnabled ? " active" : ""}`} onClick={() => setRenderEnabled((enabled) => !enabled)}>
             Render {renderEnabled ? "on" : "off"}
           </button>
@@ -647,17 +708,17 @@ export function NoteEditor({
           >
             <pre dangerouslySetInnerHTML={{ __html: editorHighlights || "\n" }} />
           </div>
+          {backlinkQuery && backlinkSuggestions.length ? (
+            <div className="backlink-suggestions" style={{ left: suggestionPosition.left, top: suggestionPosition.top }}>
+              {backlinkSuggestions.map((document, index) => (
+                <div key={document.id} className={`backlink-suggestion-row${index === activeSuggestion ? " active" : ""}`}>
+                  <span>{document.title}</span>
+                  <small>{document.type}</small>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
-        {backlinkQuery && backlinkSuggestions.length ? (
-          <div className="backlink-suggestions">
-            {backlinkSuggestions.map((document, index) => (
-              <div key={document.id} className={`backlink-suggestion-row${index === activeSuggestion ? " active" : ""}`}>
-                <span>{document.title}</span>
-                <small>{document.type}</small>
-              </div>
-            ))}
-          </div>
-        ) : null}
         {renderEnabled ? (
           <div className="note-rendered-wrap">
             <article

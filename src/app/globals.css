@@ -198,12 +198,16 @@ body.dragging-sidebar-toggle, body.dragging-sidebar-toggle .sidebar-restore { cu
 .settings-title { font-size: 13px; font-weight: 600; }
 .settings-body { padding: 8px; }
 .setting-group + .setting-group { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.setting-section-title { padding: 0 8px 6px; color: var(--tx3); font-size: 10px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; }
 .setting-row { width: 100%; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 8px; color: var(--tx2); text-align: left; }
 .setting-row:hover { background: var(--hover); color: var(--tx); }
+.setting-select-row { grid-template-columns: minmax(0, 1fr) auto; }
+.setting-select-row:hover { background: transparent; color: var(--tx2); }
 .setting-main { min-width: 0; }
 .setting-name { display: block; color: var(--tx); font-size: 13px; font-weight: 500; }
 .setting-desc { display: block; color: var(--tx3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .setting-meta { font-family: var(--mono); font-size: 10px; color: var(--tx3); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; }
+.setting-select { width: 136px; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--hover); color: var(--tx); font-size: 12px; }
 .storage-note { display: grid; gap: 3px; padding: 9px 8px 4px; color: var(--tx3); font-family: var(--mono); font-size: 10px; overflow: hidden; }
 .storage-note span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -218,6 +222,10 @@ body.dragging-sidebar-toggle, body.dragging-sidebar-toggle .sidebar-restore { cu
 .source-form .tag-input input:focus { background: transparent; border-color: transparent; }
 .tag-token { max-width: 160px; padding: 3px 7px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--tx2); font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-file { font-family: var(--mono); font-size: 11px; color: var(--tx3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action-popover { position: fixed; z-index: 30; width: 168px; display: grid; gap: 4px; padding: 6px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.12); }
+.action-row { width: 100%; display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 6px; color: var(--tx2); font-size: 13px; font-weight: 500; text-align: left; transition: background 0.1s, color 0.1s; }
+.action-row:hover:not(:disabled) { background: var(--hover); border-color: var(--border2); color: var(--tx); }
+.action-row.danger { color: #b42318; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
 .split-actions { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; }
 
@@ -229,6 +237,7 @@ body.resizing-preview .app { transition: none; }
 .preview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px; border-bottom: 1px solid var(--border); }
 .preview-title-wrap { min-width: 0; }
 .preview-title { font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--tx); overflow: hidden; text-overflow: ellipsis; }
+.preview-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .preview-body { flex: 1; min-height: 0; background: var(--bg); }
 .pdf-render-preview { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .pdf-preview-toolbar { height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--tx3); font-family: var(--mono); font-size: 10px; flex-shrink: 0; }
@@ -292,8 +301,7 @@ a.preview-empty:hover { color: var(--tx); background: var(--hover); }
 .note-markdown-input { position: relative; z-index: 1; width: 100%; height: 100%; min-height: 100%; padding: 22px; resize: none; border: 0; border-radius: inherit; background: transparent; color: transparent; caret-color: var(--tx); font-family: var(--mono); font-size: 13px; line-height: 1.65; outline: none; box-shadow: none; appearance: none; }
 .note-markdown-input::selection { background: var(--selected); color: transparent; }
 .note-markdown-input:focus { outline: none; box-shadow: none; }
-.backlink-suggestions { position: absolute; left: max(18px, calc(50% - 244px)); top: 12px; z-index: 3; width: 220px; max-height: 132px; overflow: auto; display: grid; gap: 1px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08); }
-.note-editor-grid.render-off .backlink-suggestions { left: auto; right: 12px; }
+.backlink-suggestions { position: absolute; z-index: 3; width: 220px; max-height: 132px; overflow: auto; display: grid; gap: 1px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08); }
 .backlink-suggestion-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 6px; border-radius: 7px; color: var(--tx2); text-align: left; }
 .backlink-suggestion-row.active { background: var(--hover); color: var(--tx); }
 .backlink-suggestions span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
@@ -354,7 +362,7 @@ a.preview-empty:hover { color: var(--tx); background: var(--hover); }
   .custom-filter-group, .note-editor-grid { grid-template-columns: 1fr; }
   .note-save-state { margin-left: 0; }
   .note-input-wrap { min-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); border-radius: var(--r) var(--r) 0 0; }
-  .backlink-suggestions { left: auto; right: 12px; width: min(220px, calc(100% - 24px)); }
+  .backlink-suggestions { width: min(220px, calc(100% - 24px)); }
   .note-rendered-wrap { min-height: 260px; border-radius: 0 0 var(--r) var(--r); }
   .doc-grid.list .doc-card { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
   .doc-grid.list .type-badge { grid-column: 2; }

@@ -1,10 +1,27 @@
-import type { AppConfig, DocumentBacklink, DocumentType, KnowledgeDocument, NoteContent, NoteImageUpload, NoteMetadata } from "./types";
+import type { AppConfig, DocumentBacklink, DocumentType, KnowledgeDocument, NoteContent, NoteImageUpload, NoteMetadata, OpenAppConfig } from "./types";
 
 export async function fetchConfig(): Promise<AppConfig> {
   const response = await fetch("/api/config");
   if (!response.ok) {
     throw new Error("Could not load local knowledge base");
   }
+  return response.json() as Promise<AppConfig>;
+}
+
+export async function updateOpenApps(openApps: OpenAppConfig): Promise<AppConfig> {
+  const response = await fetch("/api/config", {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ openApps }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not update open app settings");
+  }
+
   return response.json() as Promise<AppConfig>;
 }
 
@@ -85,6 +102,18 @@ export async function deleteDocument(id: number): Promise<void> {
   if (!response.ok) {
     const message = await response.text();
     throw new Error(message || "Could not delete source");
+  }
+}
+
+export async function openDocumentExternally(id: number, app?: string): Promise<void> {
+  const params = app ? `?app=${app}` : "";
+  const response = await fetch(`/api/documents/${id}/open${params}`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not open source externally");
   }
 }
 

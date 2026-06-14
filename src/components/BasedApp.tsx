@@ -2,7 +2,7 @@
 
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDocument, addWebDocument, createNote, deleteDocument, fetchConfig, fetchNote, saveNote, updateDocument, uploadNoteImage } from "../lib/api";
+import { addDocument, addWebDocument, createNote, deleteDocument, fetchConfig, fetchNote, openDocumentExternally, saveNote, updateDocument, updateOpenApps, uploadNoteImage } from "../lib/api";
 import {
   inferType,
   parseNoteMarkdown,
@@ -17,6 +17,8 @@ import type {
   DocumentType,
   KnowledgeDocument,
   NoteMetadata,
+  OpenApp,
+  OpenAppConfig,
   PendingSource,
   SaveState,
   SortMode,
@@ -25,6 +27,7 @@ import type {
 import { CustomFilterPanel } from "./CustomFilterPanel";
 import { DocumentGrid } from "./DocumentGrid";
 import { DocumentActionsModal } from "./DocumentActionsModal";
+import type { ActionsMenuPosition } from "./DocumentCard";
 import { DocumentToolbar } from "./DocumentToolbar";
 import { NoteEditor } from "./NoteEditor";
 import { NewNoteModal } from "./NewNoteModal";
@@ -38,6 +41,14 @@ import { Topbar } from "./Topbar";
 
 const PREVIEW_MIN_WIDTH = 360;
 const PREVIEW_MAX_WIDTH = 900;
+const DEFAULT_OPEN_APPS: OpenAppConfig = {
+  pdf: "system",
+  doc: "system",
+  xlsx: "system",
+  web: "system",
+  paper: "system",
+  note: "system",
+};
 
 type AppStyle = CSSProperties & {
   "--preview-width"?: string;
@@ -61,6 +72,7 @@ async function detectWebTitle(url: string, signal: AbortSignal): Promise<WebTitl
 export function BasedApp() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [storage, setStorage] = useState<AppConfig["storage"] | null>(null);
+  const [openApps, setOpenApps] = useState<OpenAppConfig>(DEFAULT_OPEN_APPS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilterGroup, setActiveFilterGroup] = useState<
@@ -93,6 +105,7 @@ export function BasedApp() {
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
   const [sidebarToggleY, setSidebarToggleY] = useState(18);
   const [actionsDocument, setActionsDocument] = useState<KnowledgeDocument | null>(null);
+  const [actionsPosition, setActionsPosition] = useState<ActionsMenuPosition | null>(null);
   const [actionsTitle, setActionsTitle] = useState("");
   const [actionsTags, setActionsTags] = useState("");
   const [actionsSaving, setActionsSaving] = useState(false);
@@ -117,6 +130,7 @@ export function BasedApp() {
       .then((config) => {
         setStorage(config.storage);
         setDocuments(config.documents);
+        setOpenApps(config.openApps ?? DEFAULT_OPEN_APPS);
       })
       .catch((caught: unknown) =>
         setError(
@@ -272,6 +286,54 @@ export function BasedApp() {
       setNoteDocument(null);
     } finally {
       setNoteLoading(false);
+    }
+  }
+
+  function openAppForType(type: DocumentType): OpenApp | undefined {
+    const app = openApps[type];
+    return app === "system" ? undefined : app;
+  }
+
+  async function changeOpenApp(type: DocumentType, app: OpenApp) {
+    const previous = openApps;
+    const nextOpenApps = { ...openApps, [type]: app };
+    setOpenApps(nextOpenApps);
+    try {
+      const config = await updateOpenApps(nextOpenApps);
+      setOpenApps(config.openApps);
+      showMessage("Open app settings updated");
+    } catch (caught: unknown) {
+      setOpenApps(previous);
+      showMessage(caught instanceof Error ? caught.message : "Could not update open app settings");
+    }
+  }
+
+  async function openActiveNoteExternally() {
+    if (!noteDocument) return;
+
+    try {
+      await openDocumentExternally(noteDocument.id, openAppForType(noteDocument.type));
+      showMessage("Opened note in editor");
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not open note externally");
+    }
+  }
+
+  async function openActionsDocumentExternally() {
+    if (!actionsDocument) return;
+
+    if (actionsDocument.type === "web") {
+      window.open(actionsDocument.source, "_blank", "noopener,noreferrer");
+      closeActions();
+      return;
+    }
+
+    try {
+      await openDocumentExternally(actionsDocument.id, openAppForType(actionsDocument.type));
+      showMessage(actionsDocument.type === "note" ? "Opened note in editor" : "Opened source file");
+      closeActions();
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not open source externally");
     }
   }
 
@@ -445,14 +507,16 @@ export function BasedApp() {
     window.addEventListener("pointerup", handlePointerUp);
   }
 
-  function openActions(doc: KnowledgeDocument) {
+  function openActions(doc: KnowledgeDocument, position: ActionsMenuPosition) {
     setActionsDocument(doc);
+    setActionsPosition(position);
     setActionsTitle(doc.title);
     setActionsTags(doc.tags.join(", "));
   }
 
   function closeActions() {
     setActionsDocument(null);
+    setActionsPosition(null);
     setActionsTitle("");
     setActionsTags("");
   }
@@ -614,6 +678,7 @@ export function BasedApp() {
               saveState={noteSaveState}
               title={noteDocument.title}
               onMarkdownChange={changeNoteMarkdown}
+              onOpenExternal={() => void openActiveNoteExternally()}
               onPasteImage={pasteNoteImage}
               onReferenceOpen={openRenderedReference}
               onSave={() => void saveActiveNote()}
@@ -680,7 +745,9 @@ export function BasedApp() {
         open={settingsOpen}
         storage={storage}
         theme={theme}
+        openApps={openApps}
         onClose={() => setSettingsOpen(false)}
+        onOpenAppChange={(type, app) => void changeOpenApp(type, app)}
         onShowMessage={showMessage}
         onThemeChange={setTheme}
         onViewModeChange={setViewMode}
@@ -702,11 +769,13 @@ export function BasedApp() {
       <DocumentActionsModal
         deleting={actionsDeleting}
         document={actionsDocument}
+        menuPosition={actionsPosition}
         saving={actionsSaving}
         tags={actionsTags}
         title={actionsTitle}
         onClose={closeActions}
         onDelete={() => void removeActionsDocument()}
+        onOpenExternal={() => void openActionsDocumentExternally()}
         onTagsChange={setActionsTags}
         onTitleChange={setActionsTitle}
         onUpdate={() => void saveActions()}

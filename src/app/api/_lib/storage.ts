@@ -1,9 +1,9 @@
-import { access, mkdir, rename, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { homedir } from "node:os";
 import { PrismaClient, type Document } from "@prisma/client";
 import { slugifyNoteTitle } from "../../../lib/documents";
-import type { DocumentType, KnowledgeDocument, StorageInfo } from "../../../lib/types";
+import type { DocumentType, KnowledgeDocument, OpenApp, OpenAppConfig, StorageInfo } from "../../../lib/types";
 
 const BASE_DIR = join(homedir(), ".based");
 const STORAGE_DIR = join(BASE_DIR, "storage");
@@ -15,6 +15,15 @@ const CONFIG_PATH = join(BASE_DIR, "config.toml");
 const DB_PATH = join(STORAGE_DIR, "based.sqlite");
 
 export const TYPES: readonly DocumentType[] = ["pdf", "doc", "xlsx", "web", "paper", "note"];
+export const OPEN_APPS: readonly OpenApp[] = ["system", "vscode", "zed", "obsidian"];
+export const DEFAULT_OPEN_APPS: OpenAppConfig = {
+  pdf: "system",
+  doc: "system",
+  xlsx: "system",
+  web: "system",
+  paper: "system",
+  note: "system",
+};
 
 const globalForPrisma = globalThis as typeof globalThis & {
   basedPrisma?: PrismaClient;
@@ -46,6 +55,12 @@ export async function ensureStorage() {
     'base_dir = "~/.based"',
     'storage_dir = "~/.based/storage"',
     'documents_dir = "~/.based/documents"',
+    'open_pdf = "system"',
+    'open_doc = "system"',
+    'open_xlsx = "system"',
+    'open_web = "system"',
+    'open_paper = "system"',
+    'open_note = "system"',
     "",
   ].join("\n");
 
@@ -54,6 +69,48 @@ export async function ensureStorage() {
   } catch {
     await writeFile(CONFIG_PATH, config);
   }
+}
+
+function tomlString(value: string) {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function parseOpenApp(value: string | undefined): OpenApp | null {
+  if (!value) return null;
+  const cleaned = value.trim().replace(/^"|"$/g, "");
+  return OPEN_APPS.includes(cleaned as OpenApp) ? (cleaned as OpenApp) : null;
+}
+
+export async function readOpenApps(): Promise<OpenAppConfig> {
+  await ensureStorage();
+  const config = await readFile(CONFIG_PATH, "utf8").catch(() => "");
+  return TYPES.reduce<OpenAppConfig>((openApps, type) => {
+    const match = config.match(new RegExp(`^open_${type}\\s*=\\s*(.+)$`, "m"));
+    return {
+      ...openApps,
+      [type]: parseOpenApp(match?.[1]) ?? DEFAULT_OPEN_APPS[type],
+    };
+  }, DEFAULT_OPEN_APPS);
+}
+
+export async function writeOpenApps(openApps: OpenAppConfig): Promise<OpenAppConfig> {
+  await ensureStorage();
+  const nextOpenApps = TYPES.reduce<OpenAppConfig>(
+    (next, type) => ({
+      ...next,
+      [type]: OPEN_APPS.includes(openApps[type]) ? openApps[type] : DEFAULT_OPEN_APPS[type],
+    }),
+    DEFAULT_OPEN_APPS,
+  );
+  const current = await readFile(CONFIG_PATH, "utf8").catch(() => "");
+  const withoutOpenApps = current
+    .split("\n")
+    .filter((line) => !TYPES.some((type) => line.trimStart().startsWith(`open_${type} =`)))
+    .join("\n")
+    .trimEnd();
+  const openAppLines = TYPES.map((type) => `open_${type} = ${tomlString(nextOpenApps[type])}`).join("\n");
+  await writeFile(CONFIG_PATH, `${withoutOpenApps}\n${openAppLines}\n`);
+  return nextOpenApps;
 }
 
 export async function prisma() {

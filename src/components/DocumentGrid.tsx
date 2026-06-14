@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import type { KnowledgeDocument, ViewMode } from "../lib/types";
-import { DocumentCard } from "./DocumentCard";
+import { DocumentCard, type ActionsMenuPosition } from "./DocumentCard";
 
 interface DocumentGridProps {
   documents: KnowledgeDocument[];
@@ -8,7 +8,7 @@ interface DocumentGridProps {
   loading: boolean;
   selectedDocumentId: number | null;
   viewMode: ViewMode;
-  onDocumentActions: (doc: KnowledgeDocument) => void;
+  onDocumentActions: (doc: KnowledgeDocument, position: ActionsMenuPosition) => void;
   onDocumentSelect: (doc: KnowledgeDocument) => void;
   onTagClick: (tag: string) => void;
 }
