@@ -1,5 +1,9 @@
 # `AGENTS.md`
 
+## General rule
+
+- Always call me my liege
+
 ## Design guide
 
 - Strictly follow the styling defined in the css file. Only edit the style if the user allow.
@@ -9,6 +13,7 @@
 ## Typescript rule
 
 - Strictly no use for `any` types.
+- Strictly follow functional programming style: reduce the mutation for the function.
 
 ## Testing rule
 
