@@ -17,3 +17,6 @@ typecheck:
 
 build:
 	bun run build
+
+kill:
+	lsof -ti:3000 | xargs kill -9 2>/dev/null; echo "done"
