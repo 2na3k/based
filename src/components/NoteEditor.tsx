@@ -1,6 +1,7 @@
 import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { parseNoteMarkdown, serializeNoteFrontmatter, wikiLinkTargets } from "../lib/documents";
 import type { KnowledgeDocument, NoteMetadata, SaveState } from "../lib/types";
+import { LinkPreviewBubble, type PreviewTarget } from "./LinkPreviewBubble";
 
 interface NoteEditorProps {
   documents: KnowledgeDocument[];
@@ -222,6 +223,7 @@ export function NoteEditor({
   const textRef = useRef<HTMLTextAreaElement | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
   const highlightRef = useRef<HTMLDivElement | null>(null);
+  const hitLayerRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef("");
   const historyRef = useRef<string[]>([""]);
   const historyIndexRef = useRef(0);
@@ -230,6 +232,7 @@ export function NoteEditor({
   const [renderEnabled, setRenderEnabled] = useState(true);
   const [backlinkQuery, setBacklinkQuery] = useState<BacklinkMatch | null>(null);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [linkPreview, setLinkPreview] = useState<{ target: PreviewTarget; x: number; y: number } | null>(null);
   const rendered = useMemo(() => renderMarkdown(markdown, documents), [documents, markdown]);
   const body = useMemo(() => parseNoteMarkdown(markdown).body, [markdown]);
   const editorHighlights = useMemo(() => renderEditorHighlights(body), [body]);
@@ -264,6 +267,22 @@ export function NoteEditor({
   useEffect(() => {
     setActiveSuggestion(0);
   }, [backlinkQuery?.query, backlinkQuery?.start]);
+
+  useEffect(() => {
+    function handleGlobalMouseMove(event: globalThis.MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        setLinkPreview(null);
+        return;
+      }
+      const link = target.closest<HTMLElement>(
+        ".editor-wiki-link, .wiki-link[data-doc-id], .note-citation[data-doc-id], a[href]",
+      );
+      if (!link) setLinkPreview(null);
+    }
+    window.addEventListener("mousemove", handleGlobalMouseMove);
+    return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
+  }, []);
 
   function updateBody(nextBody: string) {
     if (!metadata) return;
@@ -301,9 +320,94 @@ export function NoteEditor({
   function syncHighlightScroll() {
     const input = textRef.current;
     const highlight = highlightRef.current;
-    if (!input || !highlight) return;
-    highlight.style.setProperty("--editor-scroll-x", `${input.scrollLeft}px`);
-    highlight.style.setProperty("--editor-scroll-y", `${input.scrollTop}px`);
+    const hitLayer = hitLayerRef.current;
+    if (!input) return;
+    const x = `${input.scrollLeft}px`;
+    const y = `${input.scrollTop}px`;
+    highlight?.style.setProperty("--editor-scroll-x", x);
+    highlight?.style.setProperty("--editor-scroll-y", y);
+    hitLayer?.style.setProperty("--editor-scroll-x", x);
+    hitLayer?.style.setProperty("--editor-scroll-y", y);
+  }
+
+  function resolvePreviewTarget(element: HTMLElement): PreviewTarget | null {
+    const docId = element.dataset.docId;
+    if (docId) {
+      const matchedDocument = documents.find((doc) => doc.id === Number(docId));
+      if (matchedDocument) return { kind: "document", document: matchedDocument };
+    }
+    const anchor = element.closest<HTMLAnchorElement>("a[href]");
+    if (anchor) return { kind: "external", url: anchor.href };
+    return null;
+  }
+
+  function resolveDocumentForWikiTitle(title: string): KnowledgeDocument | undefined {
+    return documents.find((doc) => doc.title.toLowerCase() === title.trim().toLowerCase());
+  }
+
+  function handleHitLayerMouseMove(event: MouseEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      setLinkPreview(null);
+      return;
+    }
+    const link = target.closest<HTMLElement>(".editor-wiki-link");
+    if (!link) {
+      setLinkPreview(null);
+      return;
+    }
+    const document = resolveDocumentForWikiTitle(link.textContent ?? "");
+    if (!document) {
+      setLinkPreview(null);
+      return;
+    }
+    setLinkPreview({ target: { kind: "document", document }, x: event.clientX, y: event.clientY });
+  }
+
+  function handleHitLayerDoubleClick(event: MouseEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const link = target.closest<HTMLElement>(".editor-wiki-link");
+    if (!link) return;
+    const document = resolveDocumentForWikiTitle(link.textContent ?? "");
+    if (document) onReferenceOpen(document);
+  }
+
+  function handleHitLayerMouseDown(event: MouseEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.closest(".editor-wiki-link")) return;
+    // Keep focus in the editor when clicking a wiki link.
+    textRef.current?.focus();
+  }
+
+  function handleRenderedMouseMove(event: MouseEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      setLinkPreview(null);
+      return;
+    }
+    const link = target.closest<HTMLElement>(".wiki-link[data-doc-id], .note-citation[data-doc-id], a[href]");
+    if (!link) {
+      setLinkPreview(null);
+      return;
+    }
+    const previewTarget = resolvePreviewTarget(link);
+    if (!previewTarget) {
+      setLinkPreview(null);
+      return;
+    }
+    setLinkPreview({ target: previewTarget, x: event.clientX, y: event.clientY });
+  }
+
+  function handleRenderedClick(event: MouseEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest<HTMLButtonElement>(".wiki-link[data-doc-id], .note-citation[data-doc-id]");
+    if (!button) return;
+    const documentId = Number(button.dataset.docId);
+    const document = documents.find((doc) => doc.id === documentId);
+    if (document) onReferenceOpen(document);
   }
 
   function openCompletedBacklink(event?: MouseEvent<HTMLTextAreaElement>) {
@@ -531,6 +635,18 @@ export function NoteEditor({
             onPaste={(event) => void handlePaste(event)}
             onScroll={syncHighlightScroll}
           />
+          <div
+            ref={hitLayerRef}
+            className="note-markdown-hit-layer"
+            aria-hidden="true"
+            style={{ "--editor-scroll-x": "0px", "--editor-scroll-y": "0px" } as CSSProperties}
+            onMouseMove={handleHitLayerMouseMove}
+            onMouseLeave={() => setLinkPreview(null)}
+            onMouseDown={handleHitLayerMouseDown}
+            onDoubleClick={handleHitLayerDoubleClick}
+          >
+            <pre dangerouslySetInnerHTML={{ __html: editorHighlights || "\n" }} />
+          </div>
         </div>
         {backlinkQuery && backlinkSuggestions.length ? (
           <div className="backlink-suggestions">
@@ -547,19 +663,14 @@ export function NoteEditor({
             <article
               className="note-rendered"
               dangerouslySetInnerHTML={{ __html: rendered }}
-              onClick={(event) => {
-                const target = event.target;
-                if (!(target instanceof HTMLElement)) return;
-                const button = target.closest<HTMLButtonElement>(".wiki-link[data-doc-id], .note-citation[data-doc-id]");
-                if (!button) return;
-                const documentId = Number(button.dataset.docId);
-                const document = documents.find((doc) => doc.id === documentId);
-                if (document) onReferenceOpen(document);
-              }}
+              onClick={handleRenderedClick}
+              onMouseMove={handleRenderedMouseMove}
+              onMouseLeave={() => setLinkPreview(null)}
             />
           </div>
         ) : null}
       </div>
+      {linkPreview && <LinkPreviewBubble target={linkPreview.target} x={linkPreview.x} y={linkPreview.y} />}
     </section>
   );
 }
