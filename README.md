@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/logo.svg" alt="based. logo" width="96" height="96">
+
 # based.
 
 **A local-first knowledge base for your documents, notes, and web bookmarks.**
