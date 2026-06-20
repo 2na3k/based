@@ -7,7 +7,9 @@
     "dev": "bunx --bun next dev --webpack -H 127.0.0.1",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "build": "bunx --bun next build",
+    "build:icons": "bun scripts/build-icons.ts",
+    "build": "bun run build:icons && bunx --bun next build",
+    "build:macos": "bun run build && bun scripts/package-macos.ts",
     "start": "bunx --bun next start -H 127.0.0.1"
   },
   "devDependencies": {

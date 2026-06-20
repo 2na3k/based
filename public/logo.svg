@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title>based app logo</title>
+  <rect width="256" height="256" rx="56" fill="#ffffff"/>
+  <path fill="#0f0f0e" d="M70 42h36v63c9-12 23-19 42-19 35 0 61 28 61 65 0 38-26 66-61 66-20 0-35-8-44-22v18H70V42Zm69 143c20 0 34-14 34-34 0-19-14-33-34-33-21 0-35 14-35 33 0 20 14 34 35 34Z"/>
+  <circle cx="209" cy="196" r="18" fill="#2563eb"/>
+</svg>
