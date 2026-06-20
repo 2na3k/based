@@ -1,7 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { prisma, rowToDocument } from "../../../_lib/storage";
-import type { KnowledgeDocument } from "../../../../../lib/types";
+import type { KnowledgeDocument } from "../../../../lib/types";
 
 export const runtime = "nodejs";
 const FILE_NOT_FOUND_MESSAGE = "The original PDF file is missing from local storage.";

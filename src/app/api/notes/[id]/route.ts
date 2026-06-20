@@ -1,9 +1,9 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { NextResponse } from "next/server";
-import { defaultNoteMetadata, mergeNoteMarkdown, parseNoteMarkdown } from "../../../../lib/documents";
+import { defaultNoteMetadata, mergeNoteMarkdown, parseNoteMarkdown } from "../../../lib/documents";
 import { prisma, renameNotePath, rowToDocument, tagsFromUnknown } from "../../_lib/storage";
-import type { KnowledgeDocument, NoteMetadata } from "../../../../lib/types";
+import type { KnowledgeDocument, NoteMetadata } from "../../../lib/types";
 
 export const runtime = "nodejs";
 

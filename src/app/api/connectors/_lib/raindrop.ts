@@ -3,7 +3,7 @@ import { insertDedupedWebDocuments, type WebImportItem } from "./documents";
 import { ConnectorError } from "./errors";
 import type { ConnectorProvider } from "./providers";
 import type { StoredConnectorAuth, StoredOAuthTokens } from "./auth";
-import type { ConnectorImportResult } from "../../../../lib/types";
+import type { ConnectorImportResult } from "../../../lib/types";
 
 const RAINDROP_ID = "raindrop";
 const RAINDROP_TOKEN_URL = "https://raindrop.io/oauth/access_token";

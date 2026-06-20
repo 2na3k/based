@@ -1,5 +1,5 @@
 import { connectorProvider, isConnectorId, type ConnectorProvider } from "./providers";
-import type { ConnectorId } from "../../../../lib/types";
+import type { ConnectorId } from "../../../lib/types";
 
 export interface ConnectorRouteContext {
   params: Promise<{

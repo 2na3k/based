@@ -8,7 +8,7 @@ import type {
   ConnectorImportResult,
   ConnectorListItem,
   ConnectorStatus,
-} from "../../../../lib/types";
+} from "../../../lib/types";
 
 export interface ConnectorProvider {
   capabilities: ConnectorCapabilities;

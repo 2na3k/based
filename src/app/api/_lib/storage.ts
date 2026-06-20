@@ -2,8 +2,8 @@ import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { homedir } from "node:os";
 import { PrismaClient, type Document } from "@prisma/client";
-import { slugifyNoteTitle } from "../../../lib/documents";
-import type { DocumentType, KnowledgeDocument, OpenApp, OpenAppConfig, StorageInfo } from "../../../lib/types";
+import { slugifyNoteTitle } from "../../lib/documents";
+import type { DocumentType, KnowledgeDocument, OpenApp, OpenAppConfig, StorageInfo } from "../../lib/types";
 
 const BASE_DIR = join(homedir(), ".based");
 const STORAGE_DIR = join(BASE_DIR, "storage");
@@ -168,10 +168,6 @@ export function storedDocumentPath(type: DocumentType, fileName: string) {
   const fallback = `source${extname(fileName)}`;
   const storedName = `${Date.now()}-${safeName(fileName || fallback)}`;
   return join(DOCUMENTS_DIR, type, storedName);
-}
-
-export function noteFileName(title: string) {
-  return `${slugifyNoteTitle(title)}.md`;
 }
 
 async function pathExists(path: string) {

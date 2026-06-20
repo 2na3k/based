@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { titleFromLink, titleFromUrl } from "../../../../../lib/documents";
+import { titleFromLink, titleFromUrl } from "../../../../lib/documents";
 
 export const runtime = "nodejs";
 

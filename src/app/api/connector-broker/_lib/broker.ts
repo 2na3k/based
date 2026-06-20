@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ConnectorId } from "../../../../lib/types";
+import type { ConnectorId } from "../../../lib/types";
 import type { StoredOAuthTokens } from "../../connectors/_lib/auth";
 
 const BROKER_STATE_TTL_MS = 10 * 60 * 1000;

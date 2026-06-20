@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-  citationFootnotes,
   defaultNoteMetadata,
   markdownExcerptsForTarget,
   mergeNoteMarkdown,
@@ -9,22 +8,6 @@ import {
   slugifyNoteTitle,
   wikiLinkTargets,
 } from "./documents";
-import type { KnowledgeDocument } from "./types";
-
-function doc(id: number, title: string, source = ""): KnowledgeDocument {
-  return {
-    id,
-    type: "paper",
-    title,
-    source,
-    tags: [],
-    createdAt: "2026-06-13T00:00:00.000Z",
-    originalName: title,
-    storedPath: "",
-    size: 0,
-    pinned: false,
-  };
-}
 
 describe("note markdown helpers", () => {
   test("round-trips frontmatter metadata and body", () => {
@@ -66,13 +49,6 @@ describe("note markdown helpers", () => {
       "Use [[Source One]] here.",
       "Again [[Source One|label]].",
     ]);
-  });
-
-  test("generates citation footnotes from linked documents", () => {
-    const citations = citationFootnotes("[[Paper A]] and [[Web B]]", [doc(1, "Paper A", "paper.pdf"), doc(2, "Web B", "https://example.com")]);
-
-    expect(citations).toContain("[^cite-1]: Paper A, paper.pdf.");
-    expect(citations).toContain("[^cite-2]: Web B, https://example.com.");
   });
 
   test("creates safe note slugs", () => {

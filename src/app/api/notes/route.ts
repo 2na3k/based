@@ -1,7 +1,7 @@
 import { stat, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { NextResponse } from "next/server";
-import { defaultNoteMetadata, serializeNoteFrontmatter } from "../../../lib/documents";
+import { defaultNoteMetadata, serializeNoteFrontmatter } from "../../lib/documents";
 import { prisma, rowToDocument, storedNotePath, tagsFromUnknown } from "../_lib/storage";
 
 export const runtime = "nodejs";

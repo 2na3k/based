@@ -1,6 +1,6 @@
 import { prisma, rowToDocument, titleFromUrl } from "../../_lib/storage";
 import type { Document } from "@prisma/client";
-import type { KnowledgeDocument } from "../../../../lib/types";
+import type { KnowledgeDocument } from "../../../lib/types";
 
 export interface WebImportItem {
   url: string;

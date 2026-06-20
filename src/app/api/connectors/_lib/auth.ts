@@ -1,6 +1,6 @@
 import { chmod, readFile, writeFile } from "node:fs/promises";
 import { authFilePath, ensureStorage } from "../../_lib/storage";
-import type { ConnectorConfigInput, ConnectorId } from "../../../../lib/types";
+import type { ConnectorConfigInput, ConnectorId } from "../../../lib/types";
 
 export interface StoredOAuthTokens {
   accessToken: string;

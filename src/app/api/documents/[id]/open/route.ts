@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { OPEN_APPS, prisma } from "../../../_lib/storage";
-import type { OpenApp } from "../../../../../lib/types";
+import type { OpenApp } from "../../../../lib/types";
 
 export const runtime = "nodejs";
 

@@ -1,7 +1,7 @@
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { NextResponse } from "next/server";
-import { mergeNoteMarkdown, parseNoteMarkdown } from "../../../../lib/documents";
+import { mergeNoteMarkdown, parseNoteMarkdown } from "../../../lib/documents";
 import { prisma, renameNotePath, rowToDocument, tagsFromUnknown } from "../../_lib/storage";
 
 export const runtime = "nodejs";

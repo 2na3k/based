@@ -66,10 +66,6 @@ export interface DocumentBacklink {
   excerpts: string[];
 }
 
-export interface CitationFormat {
-  template: string;
-}
-
 export interface NoteImageUpload {
   markdownPath: string;
   renderUrl: string;

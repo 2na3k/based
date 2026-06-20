@@ -79,7 +79,7 @@ created: "2026-06-14T03:10:01.358Z"
 Links to other notes use [[Wiki Link]] syntax.
 ```
 
-The frontmatter is parsed/serialized by `src/lib/documents.ts`. Notes support:
+The frontmatter is parsed/serialized by `src/app/lib/documents.ts`. Notes support:
 - Wiki-style backlinks (`[[Title]]`)
 - Image attachments (pasted via clipboard)
 - Auto-save (debounced 900ms)
@@ -93,24 +93,24 @@ src/
 │   ├── page.tsx              # Entry point → BasedApp
 │   ├── layout.tsx            # Root layout with fonts
 │   ├── globals.css           # All styles
-│   └── api/                  # 15 API routes (see api.md)
-│       ├── _lib/storage.ts   # Database + filesystem layer
-│       ├── config/
-│       ├── documents/
-│       └── notes/
-├── components/
-│   ├── BasedApp.tsx          # Main app shell, state management
-│   ├── NoteEditor.tsx        # Split markdown editor + renderer
-│   ├── DocumentGrid.tsx      # Document list/card views
-│   ├── DocumentCard.tsx      # Individual document card
-│   ├── Sidebar.tsx           # Navigation + tags
-│   ├── PreviewSidebar.tsx    # PDF/web preview panel
-│   ├── LinkPreviewBubble.tsx # Hover preview for links
-│   └── ...modals
-└── lib/
-    ├── api.ts                # Client-side fetch wrappers
-    ├── documents.ts          # Markdown parsing, slugification
-    └── types.ts              # TypeScript interfaces
+│   ├── api/                      # API routes (see api.md)
+│   │   ├── _lib/storage.ts       # Database + filesystem layer
+│   │   ├── config/
+│   │   ├── documents/
+│   │   └── notes/
+│   ├── components/
+│   │   ├── BasedApp.tsx          # Main app shell, state management
+│   │   ├── NoteEditor.tsx        # Split markdown editor + renderer
+│   │   ├── DocumentGrid.tsx      # Document list/card views
+│   │   ├── DocumentCard.tsx      # Individual document card
+│   │   ├── Sidebar.tsx           # Navigation + tags
+│   │   ├── PreviewSidebar.tsx    # PDF/web preview panel
+│   │   ├── LinkPreviewBubble.tsx # Hover preview for links
+│   │   └── ...modals
+│   └── lib/
+│       ├── api.ts                # Client-side fetch wrappers
+│       ├── documents.ts          # Markdown parsing, slugification
+│       └── types.ts              # TypeScript interfaces
 ```
 
 ## Key Design Decisions

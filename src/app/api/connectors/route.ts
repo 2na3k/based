@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readConnectorAuth } from "./_lib/auth";
 import { connectorListItem, connectorProviders } from "./_lib/providers";
-import type { ConnectorListResponse } from "../../../lib/types";
+import type { ConnectorListResponse } from "../../lib/types";
 
 export const runtime = "nodejs";
 

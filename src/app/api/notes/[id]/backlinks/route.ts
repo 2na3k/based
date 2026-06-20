@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
-import { markdownExcerptsForTarget } from "../../../../../lib/documents";
+import { markdownExcerptsForTarget } from "../../../../lib/documents";
 import { prisma, rowToDocument } from "../../../_lib/storage";
-import type { DocumentBacklink } from "../../../../../lib/types";
+import type { DocumentBacklink } from "../../../../lib/types";
 
 export const runtime = "nodejs";
 

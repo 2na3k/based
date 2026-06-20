@@ -186,12 +186,3 @@ export function markdownExcerptsForTarget(markdown: string, targetTitle: string)
     .filter(Boolean)
     .slice(0, 3);
 }
-
-export function citationFootnotes(markdown: string, documents: KnowledgeDocument[]): string {
-  const targets = wikiLinkTargets(markdown).map((target) => target.toLowerCase());
-  const cited = documents.filter((doc) => targets.includes(doc.title.toLowerCase()));
-  if (!cited.length) return "";
-  return cited
-    .map((doc, index) => `[^cite-${index + 1}]: ${doc.title}${doc.source ? `, ${doc.source}` : ""}.`)
-    .join("\n");
-}

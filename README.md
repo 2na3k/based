@@ -114,19 +114,18 @@ based/
 │   │   │   ├── config/        # App configuration
 │   │   │   ├── documents/     # Document CRUD
 │   │   │   └── notes/         # Note CRUD + attachments
+│   │   ├── components/        # React components
+│   │   │   ├── BasedApp.tsx   # Root application shell
+│   │   │   ├── NoteEditor.tsx # Markdown editor
+│   │   │   ├── DocumentGrid.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── ...
+│   │   ├── lib/               # Shared app/client utilities
+│   │   │   ├── api.ts         # Client-side API helpers
+│   │   │   ├── documents.ts   # Document utilities
+│   │   │   └── types.ts       # TypeScript types
 │   │   ├── layout.tsx
 │   │   └── page.tsx
-│   ├── components/            # React components
-│   │   ├── BasedApp.tsx       # Root application shell
-│   │   ├── NoteEditor.tsx     # Markdown editor
-│   │   ├── DocumentGrid.tsx   # Document listing
-│   │   ├── Sidebar.tsx        # Navigation sidebar
-│   │   ├── PreviewSidebar.tsx # Document preview
-│   │   └── ...
-│   └── lib/
-│       ├── api.ts             # Client-side API helpers
-│       ├── documents.ts       # Document utilities
-│       └── types.ts           # TypeScript types
 └── package.json
 ```
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { OPEN_APPS, prisma, readOpenApps, rowToDocument, storageInfo, TYPES, writeOpenApps } from "../_lib/storage";
-import type { OpenAppConfig } from "../../../lib/types";
+import type { OpenAppConfig } from "../../lib/types";
 
 export const runtime = "nodejs";
 

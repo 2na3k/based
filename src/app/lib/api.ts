@@ -5,7 +5,6 @@ import type {
   ConnectorImportResult,
   ConnectorListItem,
   ConnectorListResponse,
-  DocumentBacklink,
   DocumentType,
   KnowledgeDocument,
   NoteContent,
@@ -248,14 +247,4 @@ export async function uploadNoteImage(documentId: number, file: File): Promise<N
   }
 
   return response.json() as Promise<NoteImageUpload>;
-}
-
-export async function fetchBacklinks(documentId: number): Promise<DocumentBacklink[]> {
-  const response = await fetch(`/api/notes/${documentId}/backlinks`);
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Could not load backlinks");
-  }
-  const payload = (await response.json()) as { backlinks?: DocumentBacklink[] };
-  return payload.backlinks ?? [];
 }
