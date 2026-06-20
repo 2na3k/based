@@ -170,6 +170,17 @@ export async function openDocumentExternally(id: number, app?: string): Promise<
   }
 }
 
+export async function revealDocumentInFinder(id: number): Promise<void> {
+  const response = await fetch(`/api/documents/${id}/reveal`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not show source in Finder");
+  }
+}
+
 export async function createNote(input: {
   title?: string;
   description?: string;

@@ -1,4 +1,4 @@
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, FolderSearch, Pencil, Trash2 } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ActionsMenuPosition } from "./DocumentCard";
@@ -16,13 +16,14 @@ interface DocumentActionsModalProps {
   onClose: () => void;
   onDelete: () => void;
   onOpenExternal: () => void;
+  onRevealInFinder: () => void;
   onTagsChange: (value: string) => void;
   onTitleChange: (value: string) => void;
   onUpdate: () => void;
 }
 
 const MENU_WIDTH = 168;
-const MENU_HEIGHT = 129;
+const MENU_HEIGHT = 172;
 const MENU_MARGIN = 8;
 
 function clampedMenuStyle(position: ActionsMenuPosition | null): CSSProperties {
@@ -49,6 +50,7 @@ export function DocumentActionsModal({
   onClose,
   onDelete,
   onOpenExternal,
+  onRevealInFinder,
   onTagsChange,
   onTitleChange,
   onUpdate,
@@ -92,6 +94,12 @@ export function DocumentActionsModal({
           <ExternalLink size={15} />
           <span>Open in</span>
         </button>
+        {document.type !== "web" ? (
+          <button className="action-row" role="menuitem" disabled={deleting || saving} onClick={onRevealInFinder}>
+            <FolderSearch size={15} />
+            <span>Show in Finder</span>
+          </button>
+        ) : null}
         <button className="action-row" role="menuitem" disabled={deleting || saving} onClick={() => setMode("edit")}>
           <Pencil size={15} />
           <span>Edit</span>

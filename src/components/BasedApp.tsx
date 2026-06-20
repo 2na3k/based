@@ -12,6 +12,7 @@ import {
   fetchNote,
   importConnectorDocuments,
   openDocumentExternally,
+  revealDocumentInFinder,
   saveConnectorConfig,
   saveNote,
   updateDocument,
@@ -381,6 +382,7 @@ export function BasedApp() {
 
   const noteTags = useMemo(() => uniqTags(documents.filter((doc) => doc.type === "note")), [documents]);
   const sourceTags = useMemo(() => uniqTags(documents.filter((doc) => doc.type !== "note")), [documents]);
+  const allTags = useMemo(() => uniqTags(documents), [documents]);
   const filterTags = activeFilterGroup === "notes" ? noteTags : sourceTags;
   const selectedConnector = useMemo(
     () => connectors.find((connector) => connector.definition.id === selectedConnectorId) ?? null,
@@ -607,6 +609,18 @@ export function BasedApp() {
       closeActions();
     } catch (caught: unknown) {
       showMessage(caught instanceof Error ? caught.message : "Could not open source externally");
+    }
+  }
+
+  async function revealActionsDocumentInFinder() {
+    if (!actionsDocument || actionsDocument.type === "web") return;
+
+    try {
+      await revealDocumentInFinder(actionsDocument.id);
+      showMessage("Shown in Finder");
+      closeActions();
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not show source in Finder");
     }
   }
 
@@ -916,7 +930,7 @@ export function BasedApp() {
         connectorsOpen={connectorsOpen}
         notesOpen={notesOpen}
         sidebarCollapsed={sidebarCollapsed}
-        tags={sourceTags}
+        tags={allTags}
         tagsOpen={tagsOpen}
         theme={theme}
         onHome={selectHome}
@@ -1087,6 +1101,7 @@ export function BasedApp() {
         onClose={closeActions}
         onDelete={() => void removeActionsDocument()}
         onOpenExternal={() => void openActionsDocumentExternally()}
+        onRevealInFinder={() => void revealActionsDocumentInFinder()}
         onTagsChange={setActionsTags}
         onTitleChange={setActionsTitle}
         onUpdate={() => void saveActions()}
