@@ -1,20 +1,27 @@
-import { ChevronDown, ChevronsLeft, ChevronsRight, FileText, Moon, Plug, Settings, Sun } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, FileText, House, Moon, NotebookText, Plug, Settings, Sun } from "lucide-react";
 import type { ConnectorId, ConnectorListItem, DocumentType } from "../lib/types";
 
+export type SidebarFilterGroup = "home" | "documents" | "notes" | "tags";
+
 interface SidebarProps {
-  activeFilterGroup: "documents" | "tags";
+  activeFilterGroup: SidebarFilterGroup;
   activeConnectorId: ConnectorId | null;
   activeTag: string;
   activeType: DocumentType | "all";
   connectors: ConnectorListItem[];
   connectorsOpen: boolean;
+  notesOpen: boolean;
   sidebarCollapsed: boolean;
   tags: string[];
   tagsOpen: boolean;
   theme: "light" | "dark";
+  onHome: () => void;
+  onAllDocuments: () => void;
+  onAllNotes: () => void;
   onActiveTagChange: (tag: string) => void;
   onActiveTypeChange: (type: DocumentType | "all") => void;
   onConnectorsOpenChange: (open: boolean | ((open: boolean) => boolean)) => void;
+  onNotesOpenChange: (open: boolean | ((open: boolean) => boolean)) => void;
   onOpenSettings: () => void;
   onOpenConnector: (id: ConnectorId) => void;
   onSidebarCollapsedChange: (collapsed: boolean | ((collapsed: boolean) => boolean)) => void;
@@ -29,13 +36,18 @@ export function Sidebar({
   activeType,
   connectors,
   connectorsOpen,
+  notesOpen,
   sidebarCollapsed,
   tags,
   tagsOpen,
   theme,
+  onHome,
+  onAllDocuments,
+  onAllNotes,
   onActiveTagChange,
   onActiveTypeChange,
   onConnectorsOpenChange,
+  onNotesOpenChange,
   onOpenConnector,
   onOpenSettings,
   onSidebarCollapsedChange,
@@ -57,36 +69,38 @@ export function Sidebar({
 
       <nav className="sidebar-nav">
         <div className="nav-group">
+          <button className={`nav-item nav-parent${activeFilterGroup === "home" ? " active" : ""}`} onClick={onHome}>
+            <House size={14} />
+            <span className="nav-label">Home</span>
+          </button>
+        </div>
+
+        <div className="nav-group">
           <button
             className={`nav-item nav-parent${activeFilterGroup === "documents" && activeType === "all" ? " active" : ""}`}
-            onClick={() => onActiveTypeChange("all")}
+            onClick={onAllDocuments}
           >
             <FileText size={14} />
             <span className="nav-label">All documents</span>
           </button>
         </div>
 
-        {connectors.length ? (
-          <div className={`nav-group tag-group${connectorsOpen ? "" : " collapsed"}`}>
-            <button className="nav-item nav-parent" aria-expanded={connectorsOpen} onClick={() => onConnectorsOpenChange((open) => !open)}>
-              <Plug size={14} />
-              <span className="nav-label">Connectors</span>
-              <ChevronDown className="nav-chevron" size={12} />
+        <div className={`nav-group tag-group${notesOpen ? "" : " collapsed"}`}>
+          <button className="nav-item nav-parent" aria-expanded={notesOpen} onClick={() => onNotesOpenChange((open) => !open)}>
+            <NotebookText size={14} />
+            <span className="nav-label">Notes</span>
+            <ChevronDown className="nav-chevron" size={12} />
+          </button>
+          <div className="nav-children">
+            <button
+              className={`nav-item nav-child${activeFilterGroup === "notes" && activeTag === "all" ? " active" : ""}`}
+              onClick={onAllNotes}
+            >
+              <NotebookText size={13} />
+              <span className="nav-label">All notes</span>
             </button>
-            <div className="nav-children">
-              {connectors.map((connector) => (
-                <button
-                  key={connector.definition.id}
-                  className={`nav-item nav-child${activeConnectorId === connector.definition.id ? " active" : ""}`}
-                  onClick={() => onOpenConnector(connector.definition.id)}
-                >
-                  <Plug size={13} />
-                  <span className="nav-label">{connector.definition.name}</span>
-                </button>
-              ))}
-            </div>
           </div>
-        ) : null}
+        </div>
 
         <div className={`nav-group tag-group${tagsOpen ? "" : " collapsed"}`}>
           <button className="nav-item nav-parent" aria-expanded={tagsOpen} onClick={() => onTagsOpenChange((open) => !open)}>
@@ -114,6 +128,28 @@ export function Sidebar({
             ))}
           </div>
         </div>
+
+        {connectors.length ? (
+          <div className={`nav-group tag-group${connectorsOpen ? "" : " collapsed"}`}>
+            <button className="nav-item nav-parent" aria-expanded={connectorsOpen} onClick={() => onConnectorsOpenChange((open) => !open)}>
+              <Plug size={14} />
+              <span className="nav-label">Connectors</span>
+              <ChevronDown className="nav-chevron" size={12} />
+            </button>
+            <div className="nav-children">
+              {connectors.map((connector) => (
+                <button
+                  key={connector.definition.id}
+                  className={`nav-item nav-child${activeConnectorId === connector.definition.id ? " active" : ""}`}
+                  onClick={() => onOpenConnector(connector.definition.id)}
+                >
+                  <Plug size={13} />
+                  <span className="nav-label">{connector.definition.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </nav>
 
       <div className="sidebar-foot">

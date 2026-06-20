@@ -52,7 +52,7 @@ import { DocumentToolbar } from "./DocumentToolbar";
 import { NoteEditor } from "./NoteEditor";
 import { NewNoteModal } from "./NewNoteModal";
 import { SettingsModal } from "./SettingsModal";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, type SidebarFilterGroup } from "./Sidebar";
 import { SourceChooserModal } from "./SourceChooserModal";
 import { SourceFormModal } from "./SourceFormModal";
 import { PreviewSidebar } from "./PreviewSidebar";
@@ -134,8 +134,8 @@ export function BasedApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilterGroup, setActiveFilterGroup] = useState<
-    "documents" | "tags"
-  >("documents");
+    SidebarFilterGroup
+  >("home");
   const [activeType, setActiveType] = useState<DocumentType | "all">("all");
   const [activeTag, setActiveTag] = useState<string>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -151,12 +151,13 @@ export function BasedApp() {
   const [newNoteTags, setNewNoteTags] = useState("");
   const [newNoteSaving, setNewNoteSaving] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [connectorsOpen, setConnectorsOpen] = useState(true);
+  const [connectorsOpen, setConnectorsOpen] = useState(false);
   const [selectedConnectorId, setSelectedConnectorId] = useState<ConnectorId | null>(null);
   const [connectorSaving, setConnectorSaving] = useState(false);
   const [connectorImporting, setConnectorImporting] = useState(false);
   const [connectorImportResult, setConnectorImportResult] = useState<ConnectorImportResult | null>(null);
-  const [tagsOpen, setTagsOpen] = useState(true);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [previewDocument, setPreviewDocument] =
     useState<KnowledgeDocument | null>(null);
@@ -378,7 +379,9 @@ export function BasedApp() {
     };
   }, [formUrl, pending]);
 
-  const tags = useMemo(() => uniqTags(documents), [documents]);
+  const noteTags = useMemo(() => uniqTags(documents.filter((doc) => doc.type === "note")), [documents]);
+  const sourceTags = useMemo(() => uniqTags(documents.filter((doc) => doc.type !== "note")), [documents]);
+  const filterTags = activeFilterGroup === "notes" ? noteTags : sourceTags;
   const selectedConnector = useMemo(
     () => connectors.find((connector) => connector.definition.id === selectedConnectorId) ?? null,
     [connectors, selectedConnectorId],
@@ -395,14 +398,15 @@ export function BasedApp() {
   const filtered = useMemo(() => {
     const query = searchQ.trim().toLowerCase();
     const result = documents.filter((doc) => {
-      const matchesType = activeType === "all" || doc.type === activeType;
+      const matchesGroup = activeFilterGroup === "notes" ? doc.type === "note" : doc.type !== "note";
+      const matchesType = activeFilterGroup === "notes" || activeType === "all" || doc.type === activeType;
       const matchesTag = activeTag === "all" || doc.tags.includes(activeTag);
       const matchesSearch =
         !query ||
         doc.title.toLowerCase().includes(query) ||
         doc.source.toLowerCase().includes(query) ||
         doc.tags.some((tag) => tag.toLowerCase().includes(query));
-      return matchesType && matchesTag && matchesSearch;
+      return matchesGroup && matchesType && matchesTag && matchesSearch;
     });
 
     return result.sort((a, b) => {
@@ -411,7 +415,22 @@ export function BasedApp() {
         return a.type.localeCompare(b.type) || a.title.localeCompare(b.title);
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [activeTag, activeType, documents, searchQ, sortBy]);
+  }, [activeFilterGroup, activeTag, activeType, documents, searchQ, sortBy]);
+
+  const recentWorks = useMemo(() => {
+    const query = searchQ.trim().toLowerCase();
+    return documents
+      .filter((doc) => {
+        if (!query) return true;
+        return (
+          doc.title.toLowerCase().includes(query) ||
+          doc.source.toLowerCase().includes(query) ||
+          doc.tags.some((tag) => tag.toLowerCase().includes(query))
+        );
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 6);
+  }, [documents, searchQ]);
 
   function showMessage(message: string) {
     setToast(message);
@@ -478,6 +497,33 @@ export function BasedApp() {
     setNoteDocument((current) => (current?.id === updated.id ? updated : current));
   }
 
+  function selectHome() {
+    setPreviewDocument(null);
+    setNoteDocument(null);
+    setSelectedConnectorId(null);
+    setActiveFilterGroup("home");
+    setActiveType("all");
+    setActiveTag("all");
+  }
+
+  function selectAllDocuments() {
+    setPreviewDocument(null);
+    setNoteDocument(null);
+    setSelectedConnectorId(null);
+    setActiveFilterGroup("documents");
+    setActiveType("all");
+    setActiveTag("all");
+  }
+
+  function selectAllNotes() {
+    setPreviewDocument(null);
+    setNoteDocument(null);
+    setSelectedConnectorId(null);
+    setActiveFilterGroup("notes");
+    setActiveType("all");
+    setActiveTag("all");
+  }
+
   function selectType(type: DocumentType | "all") {
     setNoteDocument(null);
     setSelectedConnectorId(null);
@@ -489,7 +535,7 @@ export function BasedApp() {
   function selectTag(tag: string) {
     setNoteDocument(null);
     setSelectedConnectorId(null);
-    setActiveFilterGroup("tags");
+    setActiveFilterGroup(activeFilterGroup === "notes" ? "notes" : "tags");
     setActiveTag(tag);
     setActiveType("all");
   }
@@ -868,13 +914,18 @@ export function BasedApp() {
         activeType={activeType}
         connectors={connectors}
         connectorsOpen={connectorsOpen}
+        notesOpen={notesOpen}
         sidebarCollapsed={sidebarCollapsed}
-        tags={tags}
+        tags={sourceTags}
         tagsOpen={tagsOpen}
         theme={theme}
+        onHome={selectHome}
+        onAllDocuments={selectAllDocuments}
+        onAllNotes={selectAllNotes}
         onActiveTagChange={selectTag}
         onActiveTypeChange={selectType}
         onConnectorsOpenChange={setConnectorsOpen}
+        onNotesOpenChange={setNotesOpen}
         onOpenConnector={openConnector}
         onOpenSettings={() => setSettingsOpen(true)}
         onSidebarCollapsedChange={setSidebarCollapsed}
@@ -916,6 +967,22 @@ export function BasedApp() {
               onSave={() => void saveActiveNote()}
               onTitleChange={renameNote}
             />
+          ) : activeFilterGroup === "home" ? (
+            <>
+              <div className="filter-bar">
+                <span className="filter-label">Recent works</span>
+              </div>
+              <DocumentGrid
+                documents={recentWorks}
+                error={error}
+                loading={loading}
+                selectedDocumentId={previewDocument?.id ?? null}
+                viewMode="card"
+                onDocumentSelect={selectDocument}
+                onDocumentActions={openActions}
+                onTagClick={selectTag}
+              />
+            </>
           ) : (
             <>
               <DocumentToolbar
@@ -930,7 +997,8 @@ export function BasedApp() {
                 activeTag={activeTag}
                 activeType={activeType}
                 open={filtersOpen}
-                tags={tags}
+                showTypeFilters={activeFilterGroup !== "notes"}
+                tags={filterTags}
                 onActiveTagChange={selectTag}
                 onActiveTypeChange={selectType}
               />
