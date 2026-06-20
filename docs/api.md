@@ -5,9 +5,11 @@ All endpoints are under `http://localhost:3000`. The app uses Next.js App Router
 ## Types
 
 ### DocumentType
+
 `"pdf" | "doc" | "xlsx" | "web" | "paper" | "note"`
 
 ### KnowledgeDocument
+
 ```ts
 {
   id: number;
@@ -24,6 +26,7 @@ All endpoints are under `http://localhost:3000`. The app uses Next.js App Router
 ```
 
 ### NoteMetadata
+
 ```ts
 {
   name: string;
@@ -34,10 +37,11 @@ All endpoints are under `http://localhost:3000`. The app uses Next.js App Router
 ```
 
 ### NoteContent
+
 ```ts
 {
   document: KnowledgeDocument;
-  markdown: string;      // full markdown with frontmatter
+  markdown: string; // full markdown with frontmatter
   metadata: NoteMetadata;
 }
 ```
@@ -53,6 +57,7 @@ All endpoints are under `http://localhost:3000`. The app uses Next.js App Router
 Returns the storage configuration and all documents.
 
 **Response** `200`
+
 ```ts
 {
   storage: {
@@ -87,6 +92,7 @@ Upload a file document.
 **Response** `201` — `KnowledgeDocument`
 
 **Errors**
+
 - `400` — Invalid payload
 
 ---
@@ -96,6 +102,7 @@ Upload a file document.
 Add a web source (no file download).
 
 **Request** — JSON
+
 ```ts
 {
   url: string;       // required, must be http/https
@@ -107,6 +114,7 @@ Add a web source (no file download).
 **Response** `201` — `KnowledgeDocument`
 
 **Errors**
+
 - `400` — Invalid URL or payload
 
 ---
@@ -121,15 +129,17 @@ Fetch a web page and extract its title for auto-fill.
 | `url` | yes | The URL to fetch |
 
 **Response** `200`
+
 ```ts
 {
-  source: string;         // hostname
-  title: string;          // page <title>
+  source: string; // hostname
+  title: string; // page <title>
   suggestedTitle: string; // computed display title
 }
 ```
 
 **Errors**
+
 - `400` — Missing/invalid URL
 
 ---
@@ -140,10 +150,11 @@ Update a document's title and tags.
 
 **Path Params**
 | Param | Type | Description |
-|---|---|---|
+|---|---|--
 | `id` | integer | Document ID |
 
 **Request** — JSON
+
 ```ts
 {
   title: string;    // required, non-empty
@@ -154,6 +165,7 @@ Update a document's title and tags.
 **Response** `200` — `KnowledgeDocument`
 
 **Errors**
+
 - `400` — Invalid ID or missing title
 - `404` — Not found
 
@@ -171,6 +183,7 @@ Delete a document and its stored file.
 **Response** `204` — Empty
 
 **Errors**
+
 - `400` — Invalid ID
 - `404` — Not found
 
@@ -188,6 +201,7 @@ Check if a PDF document exists and get its headers.
 **Response** `200` — Headers only (`content-type: application/pdf`, `content-length`, `content-disposition`)
 
 **Errors**
+
 - `400` — Invalid ID
 - `404` — Not found or file missing
 - `415` — Not a PDF
@@ -206,6 +220,7 @@ Stream a PDF file for preview.
 **Response** `200` — Binary PDF stream
 
 **Errors**
+
 - `400` — Invalid ID
 - `404` — Not found or file missing
 - `415` — Not a PDF
@@ -222,10 +237,11 @@ Fetch and parse a web source into reader-mode HTML.
 | `id` | integer | Document ID |
 
 **Response** `200`
+
 ```ts
 {
   byline: string | null;
-  content: string;        // HTML with absolute URLs
+  content: string; // HTML with absolute URLs
   excerpt: string | null;
   length: number;
   siteName: string | null;
@@ -235,6 +251,7 @@ Fetch and parse a web source into reader-mode HTML.
 ```
 
 **Errors**
+
 - `400` — Invalid ID
 - `404` — Not found
 - `415` — Not a web source
@@ -250,6 +267,7 @@ Fetch and parse a web source into reader-mode HTML.
 Create a new note.
 
 **Request** — JSON
+
 ```ts
 {
   title?: string;       // defaults to "Untitled"
@@ -274,6 +292,7 @@ Read a note's content.
 **Response** `200` — `NoteContent`
 
 **Errors**
+
 - `400` — Invalid ID
 - `404` — Not found
 - `415` — Document is not a note
@@ -290,6 +309,7 @@ Save/update a note.
 | `id` | integer | Document ID |
 
 **Request** — JSON
+
 ```ts
 {
   markdown: string;    // required, full markdown content
@@ -305,6 +325,7 @@ Save/update a note.
 **Response** `200` — `NoteContent`
 
 **Errors**
+
 - `400` — Invalid ID or payload
 - `404` — Not found
 - `415` — Not a note
@@ -321,6 +342,7 @@ Find all notes that reference this note.
 | `id` | integer | Document ID |
 
 **Response** `200`
+
 ```ts
 {
   backlinks: {
@@ -331,6 +353,7 @@ Find all notes that reference this note.
 ```
 
 **Errors**
+
 - `400` — Invalid ID
 - `404` — Not found
 
@@ -351,14 +374,16 @@ Upload an image attachment for a note.
 | `file` | File | yes | Image file (`image/*`) |
 
 **Response** `200`
+
 ```ts
 {
-  markdownPath: string;  // "attachments/images/<filename>"
-  renderUrl: string;     // "/api/notes/attachments/images/<filename>"
+  markdownPath: string; // "attachments/images/<filename>"
+  renderUrl: string; // "/api/notes/attachments/images/<filename>"
 }
 ```
 
 **Errors**
+
 - `400` — Invalid ID or no file
 - `404` — Note not found
 - `415` — Not a note
@@ -377,4 +402,5 @@ Serve a note image attachment.
 **Response** `200` — Binary image with appropriate `content-type` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`)
 
 **Errors**
+
 - `404` — Image not found
