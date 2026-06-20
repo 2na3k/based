@@ -1,4 +1,18 @@
-import type { AppConfig, DocumentBacklink, DocumentType, KnowledgeDocument, NoteContent, NoteImageUpload, NoteMetadata, OpenAppConfig } from "./types";
+import type {
+  AppConfig,
+  ConnectorConfigInput,
+  ConnectorId,
+  ConnectorImportResult,
+  ConnectorListItem,
+  ConnectorListResponse,
+  DocumentBacklink,
+  DocumentType,
+  KnowledgeDocument,
+  NoteContent,
+  NoteImageUpload,
+  NoteMetadata,
+  OpenAppConfig,
+} from "./types";
 
 export async function fetchConfig(): Promise<AppConfig> {
   const response = await fetch("/api/config");
@@ -6,6 +20,45 @@ export async function fetchConfig(): Promise<AppConfig> {
     throw new Error("Could not load local knowledge base");
   }
   return response.json() as Promise<AppConfig>;
+}
+
+export async function fetchConnectors(): Promise<ConnectorListItem[]> {
+  const response = await fetch("/api/connectors");
+  if (!response.ok) {
+    throw new Error("Could not load connectors");
+  }
+  const payload = (await response.json()) as ConnectorListResponse;
+  return payload.connectors;
+}
+
+export async function saveConnectorConfig(id: ConnectorId, input: ConnectorConfigInput): Promise<ConnectorListItem> {
+  const response = await fetch(`/api/connectors/${id}/config`, {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not save connector config");
+  }
+
+  return response.json() as Promise<ConnectorListItem>;
+}
+
+export async function importConnectorDocuments(id: ConnectorId): Promise<ConnectorImportResult> {
+  const response = await fetch(`/api/connectors/${id}/import`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Could not import connector documents");
+  }
+
+  return response.json() as Promise<ConnectorImportResult>;
 }
 
 export async function updateOpenApps(openApps: OpenAppConfig): Promise<AppConfig> {

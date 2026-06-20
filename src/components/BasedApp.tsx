@@ -2,7 +2,22 @@
 
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDocument, addWebDocument, createNote, deleteDocument, fetchConfig, fetchNote, openDocumentExternally, saveNote, updateDocument, updateOpenApps, uploadNoteImage } from "../lib/api";
+import {
+  addDocument,
+  addWebDocument,
+  createNote,
+  deleteDocument,
+  fetchConfig,
+  fetchConnectors,
+  fetchNote,
+  importConnectorDocuments,
+  openDocumentExternally,
+  saveConnectorConfig,
+  saveNote,
+  updateDocument,
+  updateOpenApps,
+  uploadNoteImage,
+} from "../lib/api";
 import {
   inferType,
   parseNoteMarkdown,
@@ -14,6 +29,10 @@ import {
 } from "../lib/documents";
 import type {
   AppConfig,
+  ConnectorConfigInput,
+  ConnectorId,
+  ConnectorImportResult,
+  ConnectorListItem,
   DocumentType,
   KnowledgeDocument,
   NoteMetadata,
@@ -25,6 +44,7 @@ import type {
   ViewMode,
 } from "../lib/types";
 import { CustomFilterPanel } from "./CustomFilterPanel";
+import { ConnectorModal } from "./ConnectorModal";
 import { DocumentGrid } from "./DocumentGrid";
 import { DocumentActionsModal } from "./DocumentActionsModal";
 import type { ActionsMenuPosition } from "./DocumentCard";
@@ -59,6 +79,43 @@ interface WebTitleSuggestion {
   suggestedTitle: string;
 }
 
+interface ConnectorSyncMessage {
+  type: "based:connector-sync";
+  connectorId: string;
+  status: "synced" | "error";
+  message?: string;
+  importedCount?: number;
+  skippedCount?: number;
+  totalFetched?: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function connectorSyncMessageFromData(data: unknown): ConnectorSyncMessage | null {
+  if (!isRecord(data) || data.type !== "based:connector-sync" || typeof data.connectorId !== "string") return null;
+  if (data.status !== "synced" && data.status !== "error") return null;
+  return {
+    type: "based:connector-sync",
+    connectorId: data.connectorId,
+    status: data.status,
+    message: typeof data.message === "string" ? data.message : undefined,
+    importedCount: typeof data.importedCount === "number" ? data.importedCount : undefined,
+    skippedCount: typeof data.skippedCount === "number" ? data.skippedCount : undefined,
+    totalFetched: typeof data.totalFetched === "number" ? data.totalFetched : undefined,
+  };
+}
+
+function isLocalConnectorOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+  } catch {
+    return false;
+  }
+}
+
 async function detectWebTitle(url: string, signal: AbortSignal): Promise<WebTitleSuggestion> {
   const params = new URLSearchParams({ url });
   const response = await fetch(`/api/documents/web/title?${params.toString()}`, { signal });
@@ -71,6 +128,7 @@ async function detectWebTitle(url: string, signal: AbortSignal): Promise<WebTitl
 
 export function BasedApp() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [connectors, setConnectors] = useState<ConnectorListItem[]>([]);
   const [storage, setStorage] = useState<AppConfig["storage"] | null>(null);
   const [openApps, setOpenApps] = useState<OpenAppConfig>(DEFAULT_OPEN_APPS);
   const [loading, setLoading] = useState(true);
@@ -93,6 +151,11 @@ export function BasedApp() {
   const [newNoteTags, setNewNoteTags] = useState("");
   const [newNoteSaving, setNewNoteSaving] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [connectorsOpen, setConnectorsOpen] = useState(true);
+  const [selectedConnectorId, setSelectedConnectorId] = useState<ConnectorId | null>(null);
+  const [connectorSaving, setConnectorSaving] = useState(false);
+  const [connectorImporting, setConnectorImporting] = useState(false);
+  const [connectorImportResult, setConnectorImportResult] = useState<ConnectorImportResult | null>(null);
   const [tagsOpen, setTagsOpen] = useState(true);
   const [toast, setToast] = useState("");
   const [previewDocument, setPreviewDocument] =
@@ -122,15 +185,18 @@ export function BasedApp() {
   const currentNoteMarkdown = useRef("");
   const currentNoteMetadata = useRef<NoteMetadata | null>(null);
   const currentNoteDocumentId = useRef<number | null>(null);
+  const connectorQueryHandled = useRef(false);
+  const startupConnectorSyncHandled = useRef(false);
   const noteRevision = useRef(0);
   const noteSaving = useRef(false);
 
   useEffect(() => {
-    fetchConfig()
-      .then((config) => {
+    Promise.all([fetchConfig(), fetchConnectors()])
+      .then(([config, connectorList]) => {
         setStorage(config.storage);
         setDocuments(config.documents);
         setOpenApps(config.openApps ?? DEFAULT_OPEN_APPS);
+        setConnectors(connectorList);
       })
       .catch((caught: unknown) =>
         setError(
@@ -139,6 +205,105 @@ export function BasedApp() {
       )
       .finally(() => setLoading(false));
   }, []);
+
+  async function refreshAppState(): Promise<void> {
+    const [config, connectorList] = await Promise.all([fetchConfig(), fetchConnectors()]);
+    setStorage(config.storage);
+    setDocuments(config.documents);
+    setOpenApps(config.openApps ?? DEFAULT_OPEN_APPS);
+    setConnectors(connectorList);
+  }
+
+  useEffect(() => {
+    if (startupConnectorSyncHandled.current || !connectors.length) return;
+    const importableConnectors = connectors.filter(
+      (connector) =>
+        connector.status.connected &&
+        connector.definition.capabilities.canImport,
+    );
+    if (!importableConnectors.length) return;
+
+    startupConnectorSyncHandled.current = true;
+    const connectorNames = importableConnectors.map((connector) => connector.definition.name).join(", ");
+    showMessage(`Syncing ${connectorNames}`);
+
+    void Promise.all(
+      importableConnectors.map((connector) => importConnectorDocuments(connector.definition.id)),
+    )
+      .then((results) => {
+        const importedCount = results.reduce((total, result) => total + result.importedCount, 0);
+        const skippedCount = results.reduce((total, result) => total + result.skippedCount, 0);
+        const totalFetched = results.reduce((total, result) => total + result.totalFetched, 0);
+        const lastResult = results.at(-1);
+        if (lastResult) setConnectorImportResult(lastResult);
+        showMessage(`Connector sync complete: ${importedCount} imported, ${skippedCount} skipped, ${totalFetched} fetched`);
+        return refreshAppState();
+      })
+      .catch((caught: unknown) => {
+        showMessage(caught instanceof Error ? caught.message : "Could not sync connectors");
+      });
+  }, [connectors]);
+
+  useEffect(() => {
+    function handleConnectorMessage(event: MessageEvent<unknown>) {
+      if (event.origin !== window.location.origin && !isLocalConnectorOrigin(event.origin)) return;
+      const message = connectorSyncMessageFromData(event.data);
+      if (!message) return;
+      const connector = connectors.find((item) => item.definition.id === message.connectorId);
+      if (!connector) return;
+
+      setSelectedConnectorId(connector.definition.id);
+      if (message.status === "error") {
+        showMessage(message.message || "Could not sync connector");
+        return;
+      }
+
+      const result: ConnectorImportResult = {
+        connectorId: connector.definition.id,
+        documents: [],
+        importedCount: message.importedCount ?? 0,
+        skippedCount: message.skippedCount ?? 0,
+        totalFetched: message.totalFetched ?? 0,
+      };
+      setConnectorImportResult(result);
+      showMessage(`${connector.definition.name} synced: ${result.importedCount} imported, ${result.skippedCount} skipped`);
+      void refreshAppState()
+        .catch((caught: unknown) => showMessage(caught instanceof Error ? caught.message : "Could not refresh connector sync"));
+    }
+
+    window.addEventListener("message", handleConnectorMessage);
+    return () => window.removeEventListener("message", handleConnectorMessage);
+  }, [connectors]);
+
+  useEffect(() => {
+    if (connectorQueryHandled.current || !connectors.length) return;
+    connectorQueryHandled.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const connectorId = params.get("connector");
+    const connectorStatus = params.get("connectorStatus");
+    const connectorMessage = params.get("connectorMessage");
+    const importedCount = Number(params.get("connectorImported") ?? 0);
+    const skippedCount = Number(params.get("connectorSkipped") ?? 0);
+    const totalFetched = Number(params.get("connectorFetched") ?? 0);
+    const connector = connectors.find((item) => item.definition.id === connectorId);
+    if (!connector) return;
+
+    setSelectedConnectorId(connector.definition.id);
+    if (connectorStatus === "synced") {
+      const result = {
+        connectorId: connector.definition.id,
+        documents: [],
+        importedCount: Number.isFinite(importedCount) ? importedCount : 0,
+        skippedCount: Number.isFinite(skippedCount) ? skippedCount : 0,
+        totalFetched: Number.isFinite(totalFetched) ? totalFetched : 0,
+      };
+      setConnectorImportResult(result);
+      showMessage(`${connector.definition.name} synced: ${result.importedCount} imported, ${result.skippedCount} skipped`);
+    }
+    if (connectorStatus === "connected") showMessage(`${connector.definition.name} connected`);
+    if (connectorStatus === "error") showMessage(connectorMessage || `Could not connect ${connector.definition.name}`);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [connectors]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -158,6 +323,7 @@ export function BasedApp() {
         setSettingsOpen(false);
         setSourceChooserOpen(false);
         setNewNoteOpen(false);
+        setSelectedConnectorId(null);
         setPending(null);
         setPreviewDocument(null);
       }
@@ -213,6 +379,10 @@ export function BasedApp() {
   }, [formUrl, pending]);
 
   const tags = useMemo(() => uniqTags(documents), [documents]);
+  const selectedConnector = useMemo(
+    () => connectors.find((connector) => connector.definition.id === selectedConnectorId) ?? null,
+    [connectors, selectedConnectorId],
+  );
 
   useEffect(() => {
     if (!noteDocument || noteSaveState !== "dirty") return;
@@ -247,6 +417,61 @@ export function BasedApp() {
     setToast(message);
   }
 
+  function updateConnectorState(updated: ConnectorListItem) {
+    setConnectors((current) =>
+      current.map((connector) => (connector.definition.id === updated.definition.id ? updated : connector)),
+    );
+  }
+
+  function openConnector(id: ConnectorId) {
+    setSelectedConnectorId(id);
+    setConnectorImportResult(null);
+  }
+
+  async function saveSelectedConnectorConfig(input: ConnectorConfigInput) {
+    if (!selectedConnectorId) return;
+    setConnectorSaving(true);
+    try {
+      const updated = await saveConnectorConfig(selectedConnectorId, input);
+      updateConnectorState(updated);
+      showMessage(`${updated.definition.name} config saved`);
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not save connector config");
+    } finally {
+      setConnectorSaving(false);
+    }
+  }
+
+  function connectSelectedConnector() {
+    if (!selectedConnectorId) return;
+    const connector = connectors.find((item) => item.definition.id === selectedConnectorId);
+    const origin = connector?.status.redirectOrigin ?? window.location.origin;
+    const startUrl = `${origin}/api/connectors/${selectedConnectorId}/oauth/start`;
+    const popup = window.open(
+      startUrl,
+      `based-${selectedConnectorId}-oauth`,
+      "popup,width=540,height=740",
+    );
+    if (!popup) {
+      window.location.href = startUrl;
+    }
+  }
+
+  async function importSelectedConnectorDocuments() {
+    if (!selectedConnectorId) return;
+    setConnectorImporting(true);
+    try {
+      const result = await importConnectorDocuments(selectedConnectorId);
+      setConnectorImportResult(result);
+      showMessage(`Imported ${result.importedCount}; skipped ${result.skippedCount}`);
+      await refreshAppState();
+    } catch (caught: unknown) {
+      showMessage(caught instanceof Error ? caught.message : "Could not import connector documents");
+    } finally {
+      setConnectorImporting(false);
+    }
+  }
+
   function updateDocumentState(updated: KnowledgeDocument) {
     setDocuments((current) => current.map((doc) => (doc.id === updated.id ? updated : doc)));
     setPreviewDocument((current) => (current?.id === updated.id ? updated : current));
@@ -255,6 +480,7 @@ export function BasedApp() {
 
   function selectType(type: DocumentType | "all") {
     setNoteDocument(null);
+    setSelectedConnectorId(null);
     setActiveFilterGroup("documents");
     setActiveType(type);
     setActiveTag("all");
@@ -262,6 +488,7 @@ export function BasedApp() {
 
   function selectTag(tag: string) {
     setNoteDocument(null);
+    setSelectedConnectorId(null);
     setActiveFilterGroup("tags");
     setActiveTag(tag);
     setActiveType("all");
@@ -636,14 +863,19 @@ export function BasedApp() {
     >
       <Sidebar
         activeFilterGroup={activeFilterGroup}
+        activeConnectorId={selectedConnectorId}
         activeTag={activeTag}
         activeType={activeType}
+        connectors={connectors}
+        connectorsOpen={connectorsOpen}
         sidebarCollapsed={sidebarCollapsed}
         tags={tags}
         tagsOpen={tagsOpen}
         theme={theme}
         onActiveTagChange={selectTag}
         onActiveTypeChange={selectType}
+        onConnectorsOpenChange={setConnectorsOpen}
+        onOpenConnector={openConnector}
         onOpenSettings={() => setSettingsOpen(true)}
         onSidebarCollapsedChange={setSidebarCollapsed}
         onTagsOpenChange={setTagsOpen}
@@ -765,6 +997,17 @@ export function BasedApp() {
         onFormTypeChange={setFormType}
         onFormUrlChange={changeWebUrl}
         onSave={() => void savePending()}
+      />
+      <ConnectorModal
+        connector={selectedConnector}
+        importing={connectorImporting}
+        importResult={connectorImportResult}
+        open={Boolean(selectedConnector)}
+        saving={connectorSaving}
+        onClose={() => setSelectedConnectorId(null)}
+        onConnect={connectSelectedConnector}
+        onImport={() => void importSelectedConnectorDocuments()}
+        onSaveConfig={(input) => void saveSelectedConnectorConfig(input)}
       />
       <DocumentActionsModal
         deleting={actionsDeleting}

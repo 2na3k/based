@@ -1,5 +1,6 @@
 import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ActionsMenuPosition } from "./DocumentCard";
 import type { KnowledgeDocument } from "../lib/types";
 import { Modal } from "./Modal";
@@ -18,6 +19,24 @@ interface DocumentActionsModalProps {
   onTagsChange: (value: string) => void;
   onTitleChange: (value: string) => void;
   onUpdate: () => void;
+}
+
+const MENU_WIDTH = 168;
+const MENU_HEIGHT = 129;
+const MENU_MARGIN = 8;
+
+function clampedMenuStyle(position: ActionsMenuPosition | null): CSSProperties {
+  if (typeof window === "undefined") {
+    return {
+      left: position?.left ?? 0,
+      top: position?.top ?? 0,
+    };
+  }
+
+  return {
+    left: Math.max(MENU_MARGIN, Math.min(position?.left ?? 0, window.innerWidth - MENU_WIDTH - MENU_MARGIN)),
+    top: Math.max(MENU_MARGIN, Math.min(position?.top ?? 0, window.innerHeight - MENU_HEIGHT - MENU_MARGIN)),
+  };
 }
 
 export function DocumentActionsModal({
@@ -64,13 +83,10 @@ export function DocumentActionsModal({
 
   if (!document) return null;
 
-  const menuStyle: CSSProperties = {
-    left: menuPosition?.left ?? 0,
-    top: menuPosition?.top ?? 0,
-  };
+  const menuStyle = clampedMenuStyle(menuPosition);
 
   if (mode === "menu") {
-    return (
+    return createPortal(
       <div ref={menuRef} className="action-popover" role="menu" style={menuStyle} aria-label="Source actions">
         <button className="action-row" role="menuitem" disabled={deleting || saving} onClick={onOpenExternal}>
           <ExternalLink size={15} />
@@ -84,7 +100,8 @@ export function DocumentActionsModal({
           <Trash2 size={15} />
           <span>{deleting ? "Deleting..." : "Delete"}</span>
         </button>
-      </div>
+      </div>,
+      globalThis.document.body,
     );
   }
 

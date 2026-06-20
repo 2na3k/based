@@ -95,7 +95,7 @@ body.dragging-sidebar-toggle, body.dragging-sidebar-toggle .sidebar-restore { cu
 .topbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .btn-ghost { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: var(--r); border: 1px solid var(--border2); font-size: 13px; font-weight: 500; color: var(--tx2); transition: background 0.1s, color 0.1s; }
 .btn-ghost:hover { background: var(--hover); color: var(--tx); }
-.btn-primary { padding: 5px 13px; border-radius: var(--r); background: var(--accent); color: var(--fg); font-size: 13px; font-weight: 600; transition: opacity 0.1s; }
+.btn-primary { display: inline-flex; align-items: center; padding: 5px 13px; border-radius: var(--r); background: var(--accent); color: var(--fg); font-size: 13px; font-weight: 600; transition: opacity 0.1s; }
 .btn-primary:hover { opacity: 0.82; }
 .btn-danger { padding: 5px 11px; border-radius: var(--r); border: 1px solid var(--border2); color: #b42318; font-size: 13px; font-weight: 500; transition: background 0.1s, border-color 0.1s; }
 .btn-danger:hover { background: var(--hover); border-color: #d92d20; }

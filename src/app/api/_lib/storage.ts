@@ -12,6 +12,7 @@ const NOTES_DIR = join(DOCUMENTS_DIR, "notes");
 const ATTACHMENTS_DIR = join(DOCUMENTS_DIR, "attachments");
 const IMAGES_DIR = join(ATTACHMENTS_DIR, "images");
 const CONFIG_PATH = join(BASE_DIR, "config.toml");
+const AUTH_PATH = join(BASE_DIR, "auth.json");
 const DB_PATH = join(STORAGE_DIR, "based.sqlite");
 
 export const TYPES: readonly DocumentType[] = ["pdf", "doc", "xlsx", "web", "paper", "note"];
@@ -39,6 +40,10 @@ export function storageInfo(): StorageInfo {
     attachmentsDir: ATTACHMENTS_DIR,
     imagesDir: IMAGES_DIR,
   };
+}
+
+export function authFilePath() {
+  return AUTH_PATH;
 }
 
 export async function ensureStorage() {
