@@ -25,10 +25,12 @@ const DEFAULT_PREVIEW_SCALE = 1.2;
 const MIN_PREVIEW_SCALE = 0.7;
 const MAX_PREVIEW_SCALE = 2.4;
 const ZOOM_STEP = 0.2;
+const PDF_WORKER_SRC = "/vendor/pdf.worker.min.mjs";
+const PDF_RENDER_TIMEOUT_MS = 4500;
 
 function loadPdfJs() {
   pdfJsPromise ??= import("pdfjs-dist").then((pdfjs) => {
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+    pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
     return pdfjs;
   });
   return pdfJsPromise;
@@ -163,12 +165,17 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [visiblePages, setVisiblePages] = useState(PREVIEW_PAGE_BATCH);
   const [previewScale, setPreviewScale] = useState(DEFAULT_PREVIEW_SCALE);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [state, setState] = useState<"loading" | "ready" | "native" | "error">("loading");
 
   useEffect(() => {
     const controller = new AbortController();
     let disposed = false;
     let loadingTask: PDFDocumentLoadingTask | null = null;
+    const fallbackTimer = window.setTimeout(() => {
+      if (disposed) return;
+      controller.abort();
+      setState("native");
+    }, PDF_RENDER_TIMEOUT_MS);
     setPdfDocument(null);
     setError("");
     setPageCount(0);
@@ -196,6 +203,7 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
           await loadingTask.destroy().catch(() => undefined);
           return;
         }
+        window.clearTimeout(fallbackTimer);
         setPageCount(pdf.numPages);
         setPdfDocument(pdf);
         setState("ready");
@@ -208,10 +216,19 @@ export function PdfCanvas({ className = "", documentId, mode, title }: PdfCanvas
 
     return () => {
       disposed = true;
+      window.clearTimeout(fallbackTimer);
       controller.abort();
       void loadingTask?.destroy().catch(() => undefined);
     };
   }, [documentId]);
+
+  if (state === "native") {
+    return (
+      <div className={`pdf-render pdf-render-${mode} ${className}`} aria-label={`${title} PDF preview`}>
+        <iframe src={`/api/documents/${documentId}/content`} title={`${title} PDF preview`} width="100%" height="100%" />
+      </div>
+    );
+  }
 
   if (state === "loading") {
     return (
