@@ -98,7 +98,8 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   if (document.type === "web") {
-    return new Response("Web sources open directly from the browser", { status: 415 });
+    const opened = await runOpenCommand(commandForPath(document.source, process.platform));
+    return opened ? new Response(null, { status: 204 }) : new Response("Could not open the original web source", { status: 500 });
   }
 
   try {

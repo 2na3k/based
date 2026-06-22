@@ -597,15 +597,9 @@ export function BasedApp() {
   async function openActionsDocumentExternally() {
     if (!actionsDocument) return;
 
-    if (actionsDocument.type === "web") {
-      window.open(actionsDocument.source, "_blank", "noopener,noreferrer");
-      closeActions();
-      return;
-    }
-
     try {
       await openDocumentExternally(actionsDocument.id, openAppForType(actionsDocument.type));
-      showMessage(actionsDocument.type === "note" ? "Opened note in editor" : "Opened source file");
+      showMessage(actionsDocument.type === "web" ? "Opened original source" : actionsDocument.type === "note" ? "Opened note in editor" : "Opened source file");
       closeActions();
     } catch (caught: unknown) {
       showMessage(caught instanceof Error ? caught.message : "Could not open source externally");
@@ -637,9 +631,13 @@ export function BasedApp() {
     setPreviewDocument(doc);
   }
 
-  function openRenderedReference(doc: KnowledgeDocument) {
+  async function openRenderedReference(doc: KnowledgeDocument) {
     if (doc.type === "web") {
-      window.open(doc.source, "_blank", "noopener,noreferrer");
+      try {
+        await openDocumentExternally(doc.id);
+      } catch (caught: unknown) {
+        showMessage(caught instanceof Error ? caught.message : "Could not open source externally");
+      }
       return;
     }
     if (doc.type === "note") {

@@ -11,11 +11,6 @@ interface PreviewSidebarProps {
   onResizeStart: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 }
 
-function openTargetForDocument(document: KnowledgeDocument): string | null {
-  if (document.type === "web") return document.source;
-  return null;
-}
-
 export function PreviewSidebar({ document, onClose, onResizeStart }: PreviewSidebarProps) {
   const canRenderPdf = document?.type === "pdf";
 
@@ -23,12 +18,6 @@ export function PreviewSidebar({ document, onClose, onResizeStart }: PreviewSide
 
   async function openInAnotherApp() {
     if (!document) return;
-
-    const target = openTargetForDocument(document);
-    if (target) {
-      window.open(target, "_blank", "noopener,noreferrer");
-      return;
-    }
 
     try {
       await openDocumentExternally(document.id);

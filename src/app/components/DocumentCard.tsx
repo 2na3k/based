@@ -1,7 +1,7 @@
 import { MoreVertical } from "lucide-react";
+import { useState } from "react";
 import { formatDate, TYPE_LABELS } from "../lib/documents";
-import type { KnowledgeDocument } from "../lib/types";
-import { PdfCanvas } from "./PdfCanvas";
+import type { DocumentType, KnowledgeDocument } from "../lib/types";
 
 export interface ActionsMenuPosition {
   left: number;
@@ -16,9 +16,39 @@ interface DocumentCardProps {
   onTagClick: (tag: string) => void;
 }
 
+function FilePreview({ type }: { type: DocumentType }) {
+  return (
+    <div className={`card-preview file-preview ${type}-preview`} aria-hidden="true">
+      <div className="file-page">
+        <span className="file-corner" />
+        <span />
+        <span />
+        <span />
+        <span className="short" />
+      </div>
+    </div>
+  );
+}
+
+function PdfCoverPreview({ doc }: { doc: KnowledgeDocument }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) return <FilePreview type="pdf" />;
+
+  return (
+    <div className="card-preview pdf-card-preview pdf-render pdf-render-thumbnail" aria-hidden="true">
+      <div className="pdf-pages">
+        <div className="pdf-page">
+          <img className="pdf-canvas" src={`/api/documents/${doc.id}/cover`} alt="" decoding="async" onError={() => setFailed(true)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CardPreview({ doc }: { doc: KnowledgeDocument }) {
   if (doc.type === "pdf") {
-    return <PdfCanvas className="card-preview pdf-card-preview" documentId={doc.id} mode="thumbnail" title={doc.title} />;
+    return <PdfCoverPreview doc={doc} />;
   }
 
   if (doc.type === "web") {
@@ -45,17 +75,7 @@ function CardPreview({ doc }: { doc: KnowledgeDocument }) {
     );
   }
 
-  return (
-    <div className={`card-preview file-preview ${doc.type}-preview`} aria-hidden="true">
-      <div className="file-page">
-        <span className="file-corner" />
-        <span />
-        <span />
-        <span />
-        <span className="short" />
-      </div>
-    </div>
-  );
+  return <FilePreview type={doc.type} />;
 }
 
 export function DocumentCard({ doc, selected, onActions, onSelect, onTagClick }: DocumentCardProps) {
